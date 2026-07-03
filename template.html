@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%%REPORT_TITLE%%</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;background:#f8f9fb;color:#111827}
+:root{
+  --paper:#fff;--surface:#f9fafb;--surface2:#f3f4f6;
+  --border:#e5e7eb;--border2:#d1d5db;
+  --ink:#111827;--ink2:#374151;--ink3:#6b7280;--ink4:#9ca3af;
+  --v:#4f46e5;--v-bg:#eef2ff;--v-bd:#c7d2fe;--v-text:#3730a3;
+  --radius:10px;
+  --good:#15803d;--good-bg:#f0fdf4;
+  --warn:#b45309;--warn-bg:#fffbeb;
+  --bad:#b91c1c;--bad-bg:#fef2f2;
+}
+/* layout */
+.header{position:sticky;top:0;z-index:200;background:var(--paper);border-bottom:1px solid var(--border);padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.h-left{display:flex;align-items:center;gap:14px}
+.h-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.h-sep{color:var(--border2)}
+.brand-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.bt-btn{padding:5px 14px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--ink3);transition:all .15s;display:flex;align-items:center;gap:5px}
+.bt-btn img{width:14px;height:14px;border-radius:3px}
+.bt-btn.active{background:var(--ink);color:#fff;font-weight:600}
+.h-meta{font-size:12px;color:var(--ink4)}
+.model-bar{position:sticky;top:54px;z-index:190;background:var(--paper);border-bottom:1px solid var(--border);padding:8px 28px;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
+.model-bar::-webkit-scrollbar{display:none}
+.mb-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink4);margin-right:4px;white-space:nowrap}
+.mb-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--ink3);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s}
+.mb-btn img{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.mb-btn.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.mb-btn.active img{filter:brightness(10)}
+.subnav{position:sticky;top:102px;z-index:180;background:var(--paper);border-bottom:1px solid var(--border);padding:0 28px}
+.sn-inner{display:flex;overflow-x:auto;scrollbar-width:none}
+.sn-inner::-webkit-scrollbar{display:none}
+.stab{padding:11px 16px;font-size:13px;font-weight:500;color:var(--ink3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.stab:hover{color:var(--ink)}
+.stab.active{color:var(--v-text);border-bottom-color:var(--v);font-weight:600}
+.wrap{max-width:1260px;margin:0 auto;padding:0 28px}
+.stat-strip{padding:18px 0 4px}
+.stat-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
+.stat-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px}
+.sc-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink4);margin-bottom:6px}
+.sc-val{font-size:26px;font-weight:700;line-height:1;color:var(--ink)}
+.sc-val.good{color:var(--good)}.sc-val.warn{color:var(--warn)}.sc-val.bad{color:var(--bad)}
+.sc-sub{font-size:12px;color:var(--ink3);margin-top:4px}
+.panel{display:none;padding:4px 0 48px}.panel.active{display:block}
+.cc{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.cc-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cc-title{font-size:13px;font-weight:600;color:var(--ink)}
+.cc-sub{font-size:12px;color:var(--ink4)}
+.cc-body{padding:14px 18px}.cc-body.np{padding:0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.filter-bar{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;align-items:center}
+.fb-btn{padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--paper);color:var(--ink3);font-size:12px;cursor:pointer;transition:all .15s}
+.fb-btn.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.search-inp{padding:5px 12px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:var(--paper);color:var(--ink);outline:none;width:200px}
+.search-inp:focus{border-color:var(--v-bd)}
+/* prompts table */
+.ptable{width:100%;border-collapse:collapse}
+.ptable th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink4);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+.ptable td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ptable tr:last-child td{border-bottom:none}
+.ptable tr:hover td{background:var(--surface)}
+.pt-text{font-size:13px;color:var(--ink);max-width:320px;line-height:1.4}
+.pt-sort{cursor:pointer;user-select:none}
+.pt-sort:hover{color:var(--ink2)}
+.sort-arr{font-size:9px;margin-left:3px;opacity:.5;display:inline-block;width:8px;text-align:center}
+.pt-sort.sorted .sort-arr{opacity:1;color:var(--v)}
+.model-dots{display:flex;gap:5px;align-items:center}
+.mdot-wrap{position:relative;display:inline-flex;cursor:default}
+.mdot-wrap::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:10px;white-space:nowrap;padding:3px 7px;border-radius:5px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:300}
+.mdot-wrap:hover::after{opacity:1}
+.mdot-img{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--border);object-fit:contain;display:block;background:#fff}
+.mdot-miss{opacity:.2;filter:grayscale(1)}
+.comp-iw{position:relative;display:inline-flex;cursor:default}
+.comp-iw img{width:22px;height:22px;border-radius:4px;border:1.5px solid var(--border)}
+.comp-itip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;line-height:1.45;padding:5px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:30}
+.comp-iw:hover .comp-itip{opacity:1}
+.comp-itip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#1e293b}
+.comp-icons{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.vis-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.vis-full{background:var(--v-bg);color:var(--v-text)}
+.vis-part{background:var(--warn-bg);color:var(--warn)}
+.vis-none{background:var(--surface2);color:var(--ink4)}
+.pos-badge{font-size:12px;font-weight:600;color:var(--ink2)}
+/* sentiment */
+.sent-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;margin-top:20px}
+.sent-tile{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px 18px;text-align:center}
+.st-num{font-size:30px;font-weight:700;line-height:1}
+.st-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.spos .st-num,.spos .st-lbl{color:#15803d}.sneu .st-num,.sneu .st-lbl{color:#64748b}
+.sneg .st-num,.sneg .st-lbl{color:#dc2626}.sunc .st-num,.sunc .st-lbl{color:#d97706}
+.sm-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:10px}
+.smc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.smc-prompt{font-size:13px;font-weight:600;color:var(--ink)}
+.model-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid var(--border);background:var(--surface)}
+.model-chip img{width:13px;height:13px;border-radius:2px}
+.smc-meta{display:flex;gap:12px;font-size:12px;color:var(--ink3);margin-bottom:8px;align-items:center;flex-wrap:wrap}
+.sent-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600}
+.chip-positive{background:var(--good-bg);color:var(--good)}.chip-neutral{background:var(--surface2);color:var(--ink3)}
+.chip-negative{background:var(--bad-bg);color:var(--bad)}.chip-uncertain{background:var(--warn-bg);color:var(--warn)}
+.smc-context{font-size:12px;color:var(--ink3);background:var(--surface2);padding:8px 12px;border-radius:6px;margin:8px 0;font-style:italic}
+.smc-reason{font-size:12px;color:var(--ink2);margin-top:6px;line-height:1.6}
+.smc-comps-wrap{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.smc-comps-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink4);margin-bottom:6px}
+.smc-comps{display:flex;flex-wrap:wrap;gap:5px}
+.comp-tag{font-size:11px;padding:3px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--ink2);display:inline-flex;align-items:center;gap:5px;cursor:default}
+.comp-tag img{width:12px;height:12px;border-radius:2px}
+.no-data{text-align:center;padding:48px 20px;color:var(--ink4)}
+.no-data-icon{font-size:42px;margin-bottom:10px}
+.no-data h3{font-size:15px;color:var(--ink2);margin-bottom:6px}
+.no-data p{font-size:13px;max-width:380px;margin:0 auto;line-height:1.6}
+/* competitors */
+.comp-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.comp-row:last-child{border-bottom:none}
+.comp-rank{font-size:12px;font-weight:700;color:var(--ink4);width:20px;text-align:right;flex-shrink:0}
+.comp-fav{width:18px;height:18px;border-radius:4px;border:1px solid var(--border);flex-shrink:0}
+.comp-name{font-size:13px;font-weight:600;color:var(--ink);flex:1}
+.comp-bar-wrap{flex:0 0 140px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.comp-bar{height:100%;background:var(--v);border-radius:3px}
+.comp-count{font-size:12px;color:var(--ink3);width:74px;text-align:right;flex-shrink:0}
+.comp-score{font-size:12px;font-weight:600;color:var(--ink2);width:48px;text-align:right;flex-shrink:0}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sdot-pos{background:#16a34a}.sdot-neu{background:#94a3b8}.sdot-neg{background:#dc2626}
+/* citations */
+.bar-row{display:flex;align-items:center;gap:10px;padding:4px 0}
+.bar-label{font-size:12px;color:var(--ink2);width:155px;flex-shrink:0}
+.bar-track{flex:1;height:7px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--v);border-radius:3px}
+.bar-pct{font-size:11px;color:var(--ink4);width:34px;text-align:right;flex-shrink:0}
+.bar-cnt{font-size:11px;color:var(--ink4);width:38px;text-align:right;flex-shrink:0}
+.dom-table{width:100%;border-collapse:collapse}
+.dom-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink4);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface)}
+.dom-table td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.dom-table tr.dom-expand-row td{padding:0;border-bottom:none}
+.dom-table tr:last-child td{border-bottom:none}
+.dom-table tr:hover>td{background:var(--surface)}
+.dom-table tr.dom-expand-row:hover>td{background:transparent}
+.type-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;background:var(--surface2);color:var(--ink3);white-space:nowrap}
+.dom-fav{width:16px;height:16px;border-radius:3px;border:1px solid var(--border);vertical-align:middle;margin-right:5px}
+/* overview custom bars */
+.ov-bar-wrap{padding:2px 0}
+.ov-bar-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.ov-bar-row:last-child{border-bottom:none}
+.ov-bar-lbl{display:flex;align-items:center;gap:7px;width:148px;flex-shrink:0;font-size:12px;color:var(--ink2)}
+.ov-bar-lbl img{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);flex-shrink:0;object-fit:contain;background:#fff}
+.ov-bar-lbl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.ov-bar-fill{height:100%;border-radius:4px;transition:width .35s ease}
+.ov-bar-val{font-size:12px;font-weight:600;color:var(--ink3);min-width:42px;text-align:right;white-space:nowrap}
+.dom-chev{width:12px;height:12px;flex-shrink:0;color:var(--ink4);transition:transform .2s;margin-right:6px;cursor:pointer}
+.dom-row-clickable{cursor:pointer}
+.dom-row-clickable:hover td{background:var(--surface)!important}
+tr.dom-row-open .dom-chev{transform:rotate(180deg)}
+.dom-url-panel{display:none;background:var(--paper);border-top:1px solid var(--border);padding:0 0 0 44px}
+.dom-url-panel.open{display:block}
+.dom-url-table{width:100%;border-collapse:collapse}
+.dom-url-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink4);padding:8px 12px;border-bottom:1px solid var(--border2);text-align:left;white-space:nowrap;background:var(--surface)}
+.dom-url-table th.tc,.dom-url-table td.tc{text-align:center}
+.dom-url-table td{padding:14px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+.dom-url-table tr:last-child td{border-bottom:none}
+.dom-url-table tbody tr:hover td{background:var(--surface)}
+.dom-url-td-title{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dom-url-td-title a{color:var(--ink2);text-decoration:none;font-size:12px}
+.dom-url-td-title a:hover{color:var(--v);text-decoration:underline}
+.dom-url-td-cnt{font-weight:700;color:var(--v);font-size:13px;text-align:center}
+.dom-url-td-models{display:flex;gap:4px;align-items:center;justify-content:center}
+.dom-url-td-mimg{width:18px;height:18px;border-radius:4px;border:1px solid var(--border);display:block;object-fit:contain;background:#fff}
+
+/* actions */
+.act-filters{display:flex;gap:6px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.act-fb{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--paper);color:var(--ink3);font-size:12px;cursor:pointer;transition:all .15s}
+.act-fb.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 18px}
+.act-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.act-card-head{display:flex;align-items:flex-start;gap:10px;cursor:pointer;user-select:none}
+.act-card-head:hover .act-title{color:var(--v)}
+.act-icon{width:30px;height:30px;border-radius:8px;background:var(--paper);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--ink3)}
+.act-meta{flex:1;min-width:0}
+.act-head-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap}
+.act-effort-label{font-size:10px;color:var(--ink4)}
+.act-head-sep{font-size:10px;color:var(--ink4);margin:0 1px}
+.act-cat-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3)}
+.act-pri-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;display:inline-block;margin-left:2px}
+.pri-high{background:#dc2626}.pri-medium{background:#d97706}
+.act-title{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;margin-bottom:5px}
+.act-sig-fav-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
+.act-signals{font-size:11.5px;color:var(--ink4);line-height:1.4;flex:1}
+.act-favs{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.fav-wrap{position:relative;display:inline-flex;cursor:default}
+.fav-wrap::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:10px;font-weight:500;white-space:nowrap;padding:3px 8px;border-radius:5px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:300}
+.fav-wrap:hover::after{opacity:1}
+.act-fav{width:18px;height:18px;border-radius:3px;border:1px solid var(--border);display:block}
+.act-head-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;margin-left:6px}
+.act-toggle{width:22px;height:22px;border-radius:5px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink4)}
+.act-toggle svg{width:11px;height:11px;transition:transform .2s}
+.act-card.collapsed .act-toggle svg{transform:rotate(-90deg)}
+.act-body{padding-top:12px;border-top:1px solid var(--border);margin-top:12px}
+.act-card.collapsed .act-body{display:none}
+.act-sect{margin-bottom:14px}.act-sect:last-child{margin-bottom:0}
+.act-sect-label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
+.act-sect p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:0}
+.act-steps-list{padding:0;list-style:none;margin:0;display:flex;flex-direction:column;gap:8px}
+.act-step{display:flex;gap:9px;font-size:12.5px;color:var(--ink2);line-height:1.6;align-items:flex-start}
+.act-step-num{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px}
+.sn1{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}.sn2{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.sn3{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe}.sn4{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.sn0{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}
+.act-outcome{font-size:12.5px;color:var(--good);background:var(--good-bg);border-radius:8px;padding:10px 12px;line-height:1.6}
+.act-plat-row{display:flex;align-items:center;gap:4px;padding-top:10px;margin-top:4px;border-top:1px solid var(--border);flex-wrap:wrap}
+.act-plat-label{font-size:10px;color:var(--ink4);margin-right:3px}
+.act-platform-fav{width:16px;height:16px;border-radius:3px;border:1px solid var(--border)}
+.info-tip{position:relative;display:inline-flex;align-items:center;cursor:default;margin-right:5px;color:var(--ink4)}
+.info-tip svg{width:12px;height:12px}
+.info-tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#111827;color:#fff;font-size:11px;white-space:nowrap;padding:4px 9px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:400;max-width:260px;white-space:normal;line-height:1.4;text-align:left;width:max-content}
+.info-tip:hover::after{opacity:1}
+.cit-comp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px 0;margin-bottom:4px}
+.cit-comp-label{font-size:11px;font-weight:600;color:var(--ink4);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.cit-comp-dd{position:relative;display:inline-block}
+.cit-comp-trigger{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);color:var(--ink2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;min-width:180px}
+.cit-comp-trigger:hover,.cit-comp-trigger:focus{border-color:var(--v);outline:none}
+.cit-comp-trigger img{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.cit-comp-trigger span{flex:1}
+.cit-comp-menu{position:absolute;top:calc(100% + 4px);left:0;min-width:220px;background:var(--paper);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200;overflow:hidden;display:none}
+.cit-comp-menu.open{display:block}
+.cit-comp-opt{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--ink2);cursor:pointer;transition:background .1s}
+.cit-comp-opt:hover{background:var(--surface2)}
+.cit-comp-opt.active{background:var(--surface2);font-weight:600;color:var(--v)}
+.cit-comp-opt img{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+/* filter dropdowns (model + intent) */
+.flt-dd{position:relative;display:inline-block}
+.flt-trigger{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;border:1.5px solid var(--border);color:var(--ink2);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--paper);white-space:nowrap;min-width:145px}
+.flt-trigger:hover{border-color:var(--v-bd)}
+.flt-trigger.open{border-color:var(--v);box-shadow:0 0 0 2px var(--v-bg)}
+.flt-trigger img{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.flt-trigger-label{flex:1;text-align:left}
+.flt-chev{font-size:9px;color:var(--ink4);transition:transform .15s;display:inline-block}
+.flt-trigger.open .flt-chev{transform:rotate(180deg)}
+.flt-menu{position:fixed;min-width:185px;background:var(--paper);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:9999;overflow:hidden;display:none}
+.flt-menu.open{display:block}
+.flt-opt{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;color:var(--ink2);cursor:pointer;transition:background .1s;white-space:nowrap}
+.flt-opt:hover{background:var(--surface2)}
+.flt-opt.selected{background:var(--v-bg);font-weight:600;color:var(--v-text)}
+.flt-opt img{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+.flt-opt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+/* time range filter */
+.time-filter{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.tf-btn{padding:5px 11px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--ink3);transition:all .15s;white-space:nowrap}
+.tf-btn.active{background:var(--ink);color:#fff;font-weight:600}
+.tf-btn:hover:not(.active){background:var(--surface2);color:var(--ink2)}
+@media(max-width:1100px){.stat-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:780px){
+  .stat-row,.two-col,.act-grid,.sent-tiles{grid-template-columns:1fr 1fr}
+  .comp-bar-wrap{display:none}
+  .wrap,.header,.model-bar,.subnav{padding-left:14px;padding-right:14px}
+}
+@media(max-width:480px){.stat-row,.sent-tiles,.act-grid{grid-template-columns:1fr}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YV8FCLN403"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-YV8FCLN403');</script>
+</head>
+<body>
+<header class="header">
+  <div class="h-left">
+    <span class="h-title">AI Visibility Report</span>
+    <span class="h-sep">|</span>
+    <div class="brand-toggle">%%BRAND_TOGGLE%%</div>
+  </div>
+  <div style="position:relative;display:flex;align-items:center;gap:8px">
+    <div class="time-filter">
+      <button class="tf-btn active" onclick="setTimeRange('all',this)">All data</button>
+      <button class="tf-btn" onclick="setTimeRange('last-20',this)">Last 20 days</button>
+      <button class="tf-btn" onclick="setTimeRange('last-14',this)">Last 14 days</button>
+      <button class="tf-btn" onclick="setTimeRange('last-7',this)">Last 7 days</button>
+      <button class="tf-btn" onclick="setTimeRange('last-run',this)">Last run</button>
+      <button class="tf-btn" id="customTfBtn" onclick="toggleCustomPicker(this)">Custom</button>
+    </div>
+    <div id="customDatePicker" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--paper);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);padding:16px 18px;z-index:500;min-width:280px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink4);margin-bottom:12px">Custom date range</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:5px">Start date</label>
+          <input type="date" id="customStart" style="width:100%;padding:6px 10px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;color:var(--ink);background:var(--paper);outline:none;cursor:pointer" onfocus="this.style.borderColor='var(--v)'" onblur="this.style.borderColor='var(--border2)'">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:5px">End date</label>
+          <input type="date" id="customEnd" style="width:100%;padding:6px 10px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;color:var(--ink);background:var(--paper);outline:none;cursor:pointer" onfocus="this.style.borderColor='var(--v)'" onblur="this.style.borderColor='var(--border2)'">
+        </div>
+      </div>
+      <div id="customPickerError" style="display:none;font-size:12px;color:var(--bad);margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="applyCustomRange()" style="flex:1;padding:7px 0;background:var(--ink);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Apply</button>
+        <button onclick="closeCustomPicker()" style="padding:7px 14px;background:var(--surface);color:var(--ink3);border:1px solid var(--border);border-radius:7px;font-size:13px;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="h-meta" id="hMeta">May 2026 &middot; 5 AI models</div>
+</header>
+<div class="model-bar">
+  <span class="mb-label">Filter by model</span>
+  <div class="flt-dd" id="modelDd">
+    <button class="flt-trigger" id="modelTrigger" onclick="toggleFltDd('modelDd','modelMenu','modelTrigger')">
+      <span class="flt-trigger-label" id="modelTriggerLabel">All models</span>
+      <span class="flt-chev">&#9660;</span>
+    </button>
+    <div class="flt-menu" id="modelMenu">
+      <div class="flt-opt selected" onclick="pickModel('all',this)">All models</div>
+      <div class="flt-opt" onclick="pickModel('google-aio',this)">
+        <img src="https://www.google.com/s2/favicons?domain=google.com&sz=32">Google AIO
+      </div>
+      <div class="flt-opt" onclick="pickModel('google-ai-mode',this)">
+        <img src="https://www.google.com/s2/favicons?domain=google.com&sz=32">Google AI Mode
+      </div>
+      <div class="flt-opt" onclick="pickModel('gemini-2.5-flash',this)">
+        <img src="https://www.google.com/s2/favicons?domain=gemini.google.com&sz=32">Gemini
+      </div>
+      <div class="flt-opt" onclick="pickModel('sonar',this)">
+        <img src="https://www.google.com/s2/favicons?domain=perplexity.ai&sz=32">Perplexity
+      </div>
+      <div class="flt-opt" onclick="pickModel('gpt-4o-mini',this)">
+        <img src="https://www.google.com/s2/favicons?domain=openai.com&sz=32">ChatGPT
+      </div>
+    </div>
+  </div>
+  <span class="mb-label" style="margin-left:10px">Filter by intent</span>
+  <div class="flt-dd" id="intentDd">
+    <button class="flt-trigger" id="intentTrigger" onclick="toggleFltDd('intentDd','intentMenu','intentTrigger')">
+      <span class="flt-trigger-label" id="intentTriggerLabel">All intents</span>
+      <span class="flt-chev">&#9660;</span>
+    </button>
+    <div class="flt-menu" id="intentMenu">
+      <div class="flt-opt selected" onclick="pickIntent('all',this)">All intents</div>
+      <div class="flt-opt" onclick="pickIntent('COMMERCIAL',this)"><span class="flt-opt-dot" style="background:#7c3aed1a;border:1.5px solid #7c3aed"></span>Commercial</div>
+      <div class="flt-opt" onclick="pickIntent('TRANSACTIONAL',this)"><span class="flt-opt-dot" style="background:#16a34a1a;border:1.5px solid #16a34a"></span>Transactional</div>
+      <div class="flt-opt" onclick="pickIntent('INVESTIGATIONAL',this)"><span class="flt-opt-dot" style="background:#2563eb1a;border:1.5px solid #2563eb"></span>Investigational</div>
+      <div class="flt-opt" onclick="pickIntent('INFORMATIONAL',this)"><span class="flt-opt-dot" style="background:#0891b21a;border:1.5px solid #0891b2"></span>Informational</div>
+      <div class="flt-opt" onclick="pickIntent('NAVIGATIONAL',this)"><span class="flt-opt-dot" style="background:#64748b1a;border:1.5px solid #64748b"></span>Navigational</div>
+      <div class="flt-opt" onclick="pickIntent('BRANDED',this)"><span class="flt-opt-dot" style="background:#d974061a;border:1.5px solid #d97406"></span>Branded</div>
+      <div class="flt-opt" onclick="pickIntent('SENTIMENT',this)"><span class="flt-opt-dot" style="background:#db27771a;border:1.5px solid #db2777"></span>Sentiment</div>
+    </div>
+  </div>
+</div>
+<nav class="subnav">
+  <div class="sn-inner">
+    <button class="stab active" onclick="switchTab('overview',this)">Overview</button>
+    <button class="stab" onclick="switchTab('prompts',this)">Prompts</button>
+    <button class="stab" onclick="switchTab('sentiment',this)">Sentiment</button>
+    <button class="stab" onclick="switchTab('competitors',this)">Competitors</button>
+    <button class="stab" onclick="switchTab('citations',this)">Citations</button>
+    <button class="stab" onclick="switchTab('actions',this)">Actions</button>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="stat-strip"><div class="stat-row" id="statRow"></div></div>
+</div>
+<div class="wrap">
+<div id="panel-overview" class="panel active"><div id="ovContent"></div></div>
+<div id="panel-prompts" class="panel">
+  <div class="cc">
+    <div class="cc-head">
+      <div><div class="cc-title">All Prompts</div><div class="cc-sub" id="promptsSub"></div></div>
+      <input class="search-inp" id="promptSearch" placeholder="Search prompts..." oninput="onPromptSearch(this.value)">
+    </div>
+    <div class="filter-bar">
+      <button class="fb-btn active" onclick="setPromptFilter('all',this)">All</button>
+      <button class="fb-btn" onclick="setPromptFilter('mentioned',this)">Mentioned</button>
+      <button class="fb-btn" onclick="setPromptFilter('not',this)">Not mentioned</button>
+    </div>
+    <div class="cc-body np">
+      <table class="ptable"><thead><tr>
+        <th style="width:28px"></th>
+        <th class="pt-sort" onclick="setSortCol('prompt')" id="th-prompt">Prompt<span class="sort-arr" id="sa-prompt">&#8597;</span></th>
+        <th>Intent</th>
+        <th class="pt-sort" onclick="setSortCol('visibility')" id="th-visibility">Visibility<span class="sort-arr sorted" id="sa-visibility">&#8595;</span></th>
+        <th class="pt-sort" onclick="setSortCol('position')" id="th-position">Avg Position<span class="sort-arr" id="sa-position">&#8597;</span></th>
+        <th class="pt-sort" onclick="setSortCol('sentiment')" id="th-sentiment">Sentiment<span class="info-tip" data-tip="Average sentiment of AI responses that mention the brand for this prompt. Positive = spoken about favorably." onclick="event.stopPropagation()" style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span><span class="sort-arr" id="sa-sentiment">&#8597;</span></th>
+        <th>Models</th>
+        <th class="pt-sort" onclick="setSortCol('competitors')" id="th-competitors">Top Competitors<span class="info-tip" data-tip="Brands mentioned most often alongside this brand in AI responses for this prompt." onclick="event.stopPropagation()" style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span><span class="sort-arr" id="sa-competitors">&#8597;</span></th>
+        <th>Top Citations<span class="info-tip" data-tip="Domains most frequently cited by AI models when answering this prompt." style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span></th>
+      </tr></thead><tbody id="promptsTbody"></tbody></table>
+    </div>
+  </div>
+</div>
+<div id="panel-sentiment" class="panel">
+  <div class="filter-bar" id="sentFilterBar">
+    <button class="fb-btn active" onclick="setSentFilter('all',this)">All</button>
+    <button class="fb-btn" onclick="setSentFilter('positive',this)">Positive</button>
+    <button class="fb-btn" onclick="setSentFilter('neutral',this)">Neutral</button>
+    <button class="fb-btn" onclick="setSentFilter('negative',this)">Negative</button>
+    <button class="fb-btn" onclick="setSentFilter('uncertain',this)">Uncertain</button>
+  </div>
+  <div id="sentContent"></div>
+</div>
+<div id="panel-competitors" class="panel">
+  <div class="two-col">
+    <div class="cc">
+      <div class="cc-head"><div><div class="cc-title">Top Competitors</div><div class="cc-sub" id="compSub"></div></div></div>
+      <div class="cc-body" id="compList"></div>
+    </div>
+    <div class="cc">
+      <div class="cc-head"><div class="cc-title">Competitive Overview</div><div class="cc-sub">relative positioning</div></div>
+      <div class="cc-body" id="compInsight"></div>
+    </div>
+  </div>
+</div>
+<div id="panel-citations" class="panel"><div id="citContent"></div></div>
+<div id="panel-actions" class="panel">
+  <div class="cc">
+    <div class="act-filters" id="actFilters">
+      <button class="act-fb active" onclick="setActFilter('all',this)">All</button>
+      <button class="act-fb" onclick="setActFilter('high',this)">High priority</button>
+      <button class="act-fb" onclick="setActFilter('medium',this)">Medium priority</button>
+      <button class="act-fb" onclick="setActFilter('Citation Strategy',this)">Citation strategy</button>
+      <button class="act-fb" onclick="setActFilter('Visibility',this)">Visibility</button>
+      <button class="act-fb" onclick="setActFilter('Content',this)">Content</button>
+      <button class="act-fb" onclick="setActFilter('Competitive',this)">Competitive</button>
+    </div>
+    <div class="act-grid" id="actGrid"></div>
+  </div>
+</div>
+</div>
+<script>
+const D_ORIG=%%DATA%%;
+const D=JSON.parse(JSON.stringify(D_ORIG));
+const DURL=%%DOMAIN_URLS%%;
+const DCAT=%%DOMAIN_CATEGORIES%%;
+const MODEL_META={'google-aio':{label:'Google AIO',domain:'google.com'},'google-ai-mode':{label:'Google AI Mode',domain:'google.com'},'gemini-2.5-flash':{label:'Gemini',domain:'gemini.google.com'},'sonar':{label:'Perplexity (Sonar)',domain:'perplexity.ai'},'gpt-4o-mini':{label:'ChatGPT',domain:'openai.com'}};
+const MODEL_ORDER=['google-aio','google-ai-mode','gemini-2.5-flash','sonar','gpt-4o-mini'];
+const COMP_DOMAINS=%%COMP_DOMAINS%%;
+const BRAND_CFG=%%BRAND_CFG%%;
+const RAW_HISTORY=%%RAW_HISTORY%%;
+const ICONS={
+  alert:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5L1.5 13.5h13L8 2.5z"/><path d="M8 7v3"/><circle cx="8" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>',
+  list:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M2 8h12M2 12h7"/></svg>',
+  play:'<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 3l9 5-9 5V3z"/></svg>',
+  zap:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L3 9h5l-1 5 7-7H9l1-5z"/></svg>',
+  chat:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h12v9H8.5l-3.5 3V11H2V2z"/></svg>',
+  map:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3.5L6 2l4 2 5-1.5v10L15 14l-5 1-4-2-5 1.5V3.5z"/><path d="M6 2v10M10 4v10"/></svg>',
+  search:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3.5 3.5"/></svg>',
+  shield:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5L1.5 4.5V9c0 3.5 3 5.5 6.5 6 3.5-.5 6.5-2.5 6.5-6V4.5L8 1.5z"/></svg>',
+  target:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><path d="M8 5V2M8 14v-3M5 8H2M14 8h-3"/></svg>'
+};
+const ACTIONS=%%ACTIONS%%;
+let currentBrand='%%DEFAULT_BRAND%%',activeModel='all',promptFilter='all',intentFilter='all',actFilter='all',searchQuery='';
+let sortCol='visibility',sortDir='desc';
+let currentTimeRange='all';
+let customStartDate=null,customEndDate=null;
+function toggleCustomPicker(btn){
+  var picker=document.getElementById('customDatePicker');
+  var isOpen=picker.style.display!=='none';
+  if(isOpen){closeCustomPicker();return;}
+  var rh=RAW_HISTORY[currentBrand];
+  if(rh&&rh.runDates&&rh.runDates.length){
+    var rd=rh.runDates;
+    if(!document.getElementById('customStart').value)document.getElementById('customStart').value=rd[0];
+    if(!document.getElementById('customEnd').value)document.getElementById('customEnd').value=rd[rd.length-1];
+  }
+  document.getElementById('customPickerError').style.display='none';
+  picker.style.display='block';
+  setTimeout(function(){document.addEventListener('click',_outsidePickerClick,true);},10);
+}
+function _outsidePickerClick(e){
+  var picker=document.getElementById('customDatePicker');
+  var btn=document.getElementById('customTfBtn');
+  if(!picker.contains(e.target)&&e.target!==btn){closeCustomPicker();}
+}
+function closeCustomPicker(){
+  document.getElementById('customDatePicker').style.display='none';
+  document.removeEventListener('click',_outsidePickerClick,true);
+}
+function applyCustomRange(){
+  var start=document.getElementById('customStart').value;
+  var end=document.getElementById('customEnd').value;
+  var errEl=document.getElementById('customPickerError');
+  if(!start||!end){errEl.textContent='Please select both a start and end date.';errEl.style.display='block';return;}
+  if(start>end){errEl.textContent='Start date must be before end date.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+  customStartDate=start;customEndDate=end;
+  currentTimeRange='custom';
+  _compCitsCache={};
+  document.querySelectorAll('.tf-btn').forEach(function(x){x.classList.remove('active');});
+  document.getElementById('customTfBtn').classList.add('active');
+  closeCustomPicker();
+  _applyTimeRange();
+  renderAll();
+}
+let sentimentFilter='all';
+function setSentFilter(f,btn){sentimentFilter=f;document.querySelectorAll('#sentFilterBar .fb-btn').forEach(function(x){x.classList.remove('active');});btn.classList.add('active');renderSentiment();}
+
+/* ── Time range helpers ─────────────────────────────────────────────────── */
+function _daysBack(dateStr,days){var d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()-days);return d.toISOString().split('T')[0];}
+function _extractDomainJS(url){try{var parsed=new URL(url);var h=parsed.hostname.toLowerCase();return h.startsWith('www.')?h.slice(4):h;}catch(e){return url;}}
+function _normComp(name){var n=name.trim().toLowerCase();n=n.replace(/\.(ai|com|io|co|org|net|app)$/,'');n=n.replace(/\s+ai$/,'');n=n.replace(/ai$/,'');n=n.replace(/\s+(digital|agency|media|platform|labs?|technologies?|solutions?)$/,'');return n.replace(/[\s\-]/g,'');}
+function _dedupeComps(comps){var groups={};comps.forEach(function(c){var norm=_normComp(c.name);if(!groups[norm]){groups[norm]={canonical:c.name,canonicalMentions:c.mentions,mentions:0,avgScore:0,topSentiment:c.topSentiment,models:[],modelMentions:{}};}var g=groups[norm];g.mentions+=c.mentions;if(c.mentions>g.canonicalMentions){g.canonical=c.name;g.canonicalMentions=c.mentions;}(c.models||[]).forEach(function(m){if(g.models.indexOf(m)===-1)g.models.push(m);});if(c.modelMentions){Object.keys(c.modelMentions).forEach(function(mk){g.modelMentions[mk]=(g.modelMentions[mk]||0)+c.modelMentions[mk];});}});return Object.values(groups).map(function(g){return {name:g.canonical,mentions:g.mentions,avgScore:0,topSentiment:g.topSentiment,models:g.models,modelMentions:g.modelMentions};}).sort(function(a,b){return b.mentions-a.mentions;});}
+
+function _computeFilteredData(brandKey){
+  var rh=RAW_HISTORY[brandKey];
+  if(!rh||!rh.runDates||!rh.runDates.length)return null;
+  var runDates=rh.runDates;
+  var maxDate=runDates[runDates.length-1];
+  var cutoffDate=null,lastRunOnly=false,customEnd=null;
+  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  else if(currentTimeRange==='last-7'){cutoffDate=_daysBack(maxDate,7);}
+  else if(currentTimeRange==='last-14'){cutoffDate=_daysBack(maxDate,14);}
+  else if(currentTimeRange==='last-20'){cutoffDate=_daysBack(maxDate,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){cutoffDate=customStartDate;customEnd=customEndDate;}
+  function inRange(date){if(lastRunOnly)return date===maxDate;if(customEnd)return date>=cutoffDate&&date<=customEnd;if(cutoffDate)return date>=cutoffDate;return true;}
+  var bk=BRAND_CFG[brandKey].key;
+
+  /* --- prompts --- */
+  var prompts=rh.prompts.map(function(rp){
+    var fe=rp.entries.filter(function(e){return inRange(e.date);});
+    fe.sort(function(a,b){return b.date.localeCompare(a.date);});
+    var models={},mentions=0,totalRuns=fe.length,scores=[];
+    fe.forEach(function(e){
+      if(!(e.model in models)){
+        models[e.model]={mentioned:e.hit,score:e.sc||0,rank:e.rk,sentiment:e.snt||null,snippet:''};
+      }
+      if(e.hit){mentions++;if(e.sc)scores.push(e.sc);}
+    });
+    var avgScore=scores.length?Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length*100)/100:0;
+    return {id:rp.id,text:rp.text,avgScore:avgScore,mentions:mentions,totalRuns:totalRuns,models:models,intent:rp.intent||''};
+  });
+
+  /* --- citations --- */
+  var urlData={},modelCit={},domainTypeCounts={},contentTypeCounts={};
+  rh.prompts.forEach(function(rp){
+    rp.entries.filter(function(e){return inRange(e.date);}).forEach(function(e){
+      (e.srcs||[]).forEach(function(src){
+        if(!src.u)return;
+        var url=src.u,title=src.t,model=e.model;
+        var pt=src.pt||'blog_article',ct=src.ct||'blog_article';
+        if(!urlData[url])urlData[url]={title:title,count:0,models:{},mc:{}};
+        urlData[url].count++;urlData[url].models[model]=true;
+        urlData[url].mc[model]=(urlData[url].mc[model]||0)+1;
+        domainTypeCounts[pt]=(domainTypeCounts[pt]||0)+1;
+        contentTypeCounts[ct]=(contentTypeCounts[ct]||0)+1;
+        if(!modelCit[model])modelCit[model]={total:0,domains:{},domainTypes:{},contentTypes:{}};
+        modelCit[model].total++;
+        var domain=_extractDomainJS(url);
+        modelCit[model].domains[domain]=(modelCit[model].domains[domain]||0)+1;
+        modelCit[model].domainTypes[pt]=(modelCit[model].domainTypes[pt]||0)+1;
+        modelCit[model].contentTypes[ct]=(modelCit[model].contentTypes[ct]||0)+1;
+      });
+    });
+  });
+  var domainCounts={};
+  Object.keys(urlData).forEach(function(url){
+    var domain=_extractDomainJS(url);
+    domainCounts[domain]=(domainCounts[domain]||0)+urlData[url].count;
+  });
+  var topDomains=Object.keys(domainCounts).map(function(d){return {domain:d,count:domainCounts[d]};}).sort(function(a,b){return b.count-a.count;}).slice(0,20);
+  var totalCit=Object.values(urlData).reduce(function(a,x){return a+x.count;},0);
+  var origCit=D_ORIG.citations[bk];
+  /* Use actual page/content type counts from filtered data; fall back to proportional scaling if pt/ct not in raw data */
+  var hasPtCt=rh.prompts.length>0&&rh.prompts[0].entries.length>0&&'pt' in (rh.prompts[0].entries[0].srcs||[{}])[0];
+  var domainTypesArr,contentTypesArr;
+  if(hasPtCt||Object.keys(domainTypeCounts).length>0){
+    domainTypesArr=Object.keys(domainTypeCounts).map(function(t){return {type:t,count:domainTypeCounts[t]};}).sort(function(a,b){return b.count-a.count;});
+    contentTypesArr=Object.keys(contentTypeCounts).map(function(t){return {type:t,count:contentTypeCounts[t]};}).sort(function(a,b){return b.count-a.count;});
+  } else {
+    var scale=origCit.total>0?totalCit/origCit.total:1;
+    domainTypesArr=origCit.domainTypes.map(function(dt){return {type:dt.type,count:Math.max(1,Math.round(dt.count*scale))};}).filter(function(dt){return dt.count>0;});
+    contentTypesArr=origCit.contentTypes.map(function(ct){return {type:ct.type,count:Math.max(1,Math.round(ct.count*scale))};}).filter(function(ct){return ct.count>0;});
+  }
+  var citations={
+    total:totalCit,uniqueUrls:Object.keys(urlData).length,uniqueDomains:Object.keys(domainCounts).length,
+    domainTypes:domainTypesArr,contentTypes:contentTypesArr,
+    topDomains:topDomains,topListicles:origCit.topListicles,
+  };
+  var modelCitations={};
+  Object.keys(modelCit).forEach(function(mk){
+    var mc=modelCit[mk];
+    var topDoms=Object.keys(mc.domains).map(function(d){return {domain:d,count:mc.domains[d]};}).sort(function(a,b){return b.count-a.count;}).slice(0,10);
+    var mcDtArr=Object.keys(mc.domainTypes).map(function(t){return {type:t,count:mc.domainTypes[t]};}).sort(function(a,b){return b.count-a.count;});
+    var mcCtArr=Object.keys(mc.contentTypes).map(function(t){return {type:t,count:mc.contentTypes[t]};}).sort(function(a,b){return b.count-a.count;});
+    modelCitations[mk]={total:mc.total,uniqueDomains:Object.keys(mc.domains).length,topDomains:topDoms,domainTypes:mcDtArr,contentTypes:mcCtArr};
+  });
+
+  /* --- competitors --- */
+  var compData={};
+  rh.prompts.forEach(function(rp){
+    rp.entries.filter(function(e){return inRange(e.date);}).forEach(function(e){
+      (e.comps||[]).forEach(function(name){
+        if(!name)return;
+        if(!compData[name])compData[name]={mentions:0,models:{},modelMentions:{}};
+        compData[name].mentions++;compData[name].models[e.model]=true;
+        compData[name].modelMentions[e.model]=(compData[name].modelMentions[e.model]||0)+1;
+      });
+    });
+  });
+  var competitors=_dedupeComps(Object.keys(compData).map(function(name){
+    var info=compData[name];
+    return {name:name,mentions:info.mentions,avgScore:0,topSentiment:'neutral',models:Object.keys(info.models),modelMentions:info.modelMentions};
+  }));
+
+  /* --- sentiment --- */
+  var sentMentions=[];
+  rh.prompts.forEach(function(rp){
+    rp.entries.filter(function(e){return inRange(e.date)&&e.hit&&e.snt;}).forEach(function(e){
+      sentMentions.push({prompt:rp.text,model:e.model,rank:e.rk,score:e.sc,sentiment:e.snt,reason:e.rsn||'',context:e.ctx||'',competitors:e.comps||[]});
+    });
+  });
+  var sentCounts={positive:0,neutral:0,negative:0,uncertain:0};
+  sentMentions.forEach(function(m){if(sentCounts.hasOwnProperty(m.sentiment))sentCounts[m.sentiment]++;});
+  var sentiment=Object.assign({total_mentions:sentMentions.length,mentions:sentMentions},sentCounts);
+
+  return {
+    prompts:{[bk]:prompts},citations:{[bk]:citations},competitors:{[bk]:competitors},
+    sentiment:{[bk]:sentiment},modelCitations:{[bk]:modelCitations},
+  };
+}
+
+function _applyTimeRange(){
+  var bk=BRAND_CFG[currentBrand].key;
+  if(currentTimeRange==='all'){
+    D.prompts[bk]=D_ORIG.prompts[bk];
+    D.citations[bk]=D_ORIG.citations[bk];
+    D.competitors[bk]=D_ORIG.competitors[bk];
+    D.sentiment[bk]=D_ORIG.sentiment[bk];
+    D.modelCitations[bk]=D_ORIG.modelCitations[bk];
+  } else {
+    var filtered=_computeFilteredData(currentBrand);
+    if(filtered){
+      D.prompts[bk]=filtered.prompts[bk];
+      D.citations[bk]=filtered.citations[bk];
+      D.competitors[bk]=filtered.competitors[bk];
+      D.sentiment[bk]=filtered.sentiment[bk];
+      D.modelCitations[bk]=filtered.modelCitations[bk];
+    }
+  }
+  /* update h-meta with date range info */
+  var rh=RAW_HISTORY[currentBrand];
+  var meta='5 AI models';
+  if(rh&&rh.runDates&&rh.runDates.length){
+    var rd=rh.runDates;
+    var maxDate=rd[rd.length-1];
+    if(currentTimeRange==='last-run'){
+      meta='Last run: '+maxDate+' &middot; 5 AI models';
+    } else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){
+      var inRangeDates=rd.filter(function(d){return d>=customStartDate&&d<=customEndDate;});
+      meta=inRangeDates.length+' run'+(inRangeDates.length!==1?'s':'')+' &middot; '+customStartDate+' to '+customEndDate;
+    } else if(currentTimeRange!=='all'){
+      var days={'last-7':7,'last-14':14,'last-20':20}[currentTimeRange];
+      var cutoff=_daysBack(maxDate,days);
+      var inRangeDates=rd.filter(function(d){return d>=cutoff;});
+      meta=inRangeDates.length+' run'+(inRangeDates.length!==1?'s':'')+' &middot; '+cutoff+' to '+maxDate;
+    } else {
+      meta=rd.length+' run'+(rd.length!==1?'s':'')+' &middot; '+rd[0]+' to '+maxDate;
+    }
+  }
+  var hm=document.getElementById('hMeta');if(hm)hm.innerHTML=meta;
+}
+
+function setTimeRange(range,btn){
+  currentTimeRange=range;
+  customStartDate=null;customEndDate=null;
+  _compCitsCache={};
+  document.querySelectorAll('.tf-btn').forEach(function(x){x.classList.remove('active');});
+  btn.classList.add('active');
+  closeCustomPicker();
+  _applyTimeRange();
+  renderAll();
+}
+
+function setBrand(b,btn){currentBrand=b;sortCol='visibility';sortDir='desc';['prompt','visibility','position','sentiment','competitors'].forEach(function(c){var arr=document.getElementById('sa-'+c);var th=document.getElementById('th-'+c);if(!arr||!th)return;if(c==='visibility'){th.classList.add('sorted');arr.classList.add('sorted');arr.innerHTML='&#8595;';}else{th.classList.remove('sorted');arr.classList.remove('sorted');arr.innerHTML='&#8597;';}});document.querySelectorAll('.bt-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');_applyTimeRange();renderAll();}
+/* ── Filter dropdown helpers ─────────────────────────────────────────────── */
+var _fltDdOpen=null;
+function toggleFltDd(ddId,menuId,triggerId){
+  var menu=document.getElementById(menuId);
+  var trigger=document.getElementById(triggerId);
+  var isOpen=menu.classList.contains('open');
+  if(_fltDdOpen&&_fltDdOpen!==menuId){
+    var prev=document.getElementById(_fltDdOpen);
+    if(prev){prev.classList.remove('open');}
+    document.querySelectorAll('.flt-trigger.open').forEach(function(t){t.classList.remove('open');});
+  }
+  if(isOpen){
+    menu.classList.remove('open');trigger.classList.remove('open');_fltDdOpen=null;
+  } else {
+    var rect=trigger.getBoundingClientRect();
+    menu.style.top=(rect.bottom+5)+'px';
+    menu.style.left=rect.left+'px';
+    menu.classList.add('open');trigger.classList.add('open');_fltDdOpen=menuId;
+  }
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.flt-dd')){
+    document.querySelectorAll('.flt-menu.open').forEach(function(m){m.classList.remove('open');});
+    document.querySelectorAll('.flt-trigger.open').forEach(function(t){t.classList.remove('open');});
+    _fltDdOpen=null;
+  }
+});
+function pickModel(m,opt){
+  activeModel=m;
+  document.querySelectorAll('#modelMenu .flt-opt').forEach(function(x){x.classList.remove('selected');});
+  opt.classList.add('selected');
+  var labelEl=document.getElementById('modelTriggerLabel');
+  if(labelEl)labelEl.textContent=opt.textContent.trim();
+  var trigger=document.getElementById('modelTrigger');
+  if(trigger){trigger.classList.remove('open');}
+  var menu=document.getElementById('modelMenu');
+  if(menu){menu.classList.remove('open');}
+  _fltDdOpen=null;
+  renderAll();
+}
+function pickIntent(it,opt){
+  intentFilter=it;
+  document.querySelectorAll('#intentMenu .flt-opt').forEach(function(x){x.classList.remove('selected');});
+  opt.classList.add('selected');
+  var labelEl=document.getElementById('intentTriggerLabel');
+  if(labelEl)labelEl.textContent=opt.textContent.trim();
+  var trigger=document.getElementById('intentTrigger');
+  if(trigger){trigger.classList.remove('open');}
+  var menu=document.getElementById('intentMenu');
+  if(menu){menu.classList.remove('open');}
+  _fltDdOpen=null;
+  _compCitsCache={};
+  renderAll();
+}
+/* helper: filter D.prompts[bk] by current intentFilter */
+function _filterPdByIntent(pd){
+  if(intentFilter==='all')return pd;
+  return pd.filter(function(p){return String(p.intent||'').toUpperCase()===intentFilter;});
+}
+/* helper: Set of prompt *texts* matching current intentFilter, or null if 'all' */
+function _intentPromptTexts(bk){
+  if(intentFilter==='all')return null;
+  var texts=new Set();
+  var rh=RAW_HISTORY[currentBrand];if(!rh)return texts;
+  (rh.prompts||[]).forEach(function(rp){if(String(rp.intent||'').toUpperCase()===intentFilter)texts.add(rp.text);});
+  return texts;
+}
+/* rebuild competitors from RAW_HISTORY filtered by current intentFilter+model */
+function _buildIntentFilteredComps(bk){
+  var rh=RAW_HISTORY[currentBrand];if(!rh)return[];
+  var compMap={};
+  (rh.prompts||[]).forEach(function(rp){
+    if(intentFilter!=='all'&&String(rp.intent||'').toUpperCase()!==intentFilter)return;
+    (rp.entries||[]).forEach(function(e){
+      if(activeModel!=='all'&&e.model!==activeModel)return;
+      (e.comps||[]).forEach(function(c){
+        if(!c)return;
+        if(!compMap[c])compMap[c]={name:c,mentions:0,models:[],modelMentions:{},topSentiment:'neutral',avgScore:0};
+        compMap[c].mentions++;
+        if(e.model&&compMap[c].models.indexOf(e.model)===-1)compMap[c].models.push(e.model);
+        compMap[c].modelMentions[e.model]=(compMap[c].modelMentions[e.model]||0)+1;
+      });
+    });
+  });
+  return Object.values(compMap).sort(function(a,b){return b.mentions-a.mentions;});
+}
+function switchTab(t,btn){document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('panel-'+t).classList.add('active');}
+function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function safeUrl(u){try{var p=new URL(u);return(p.protocol==='https:'||p.protocol==='http:')?u:'#';}catch(e){return '#';}}
+function fav(d,sz){return 'https://www.google.com/s2/favicons?domain='+d+'&sz='+(sz||32);}
+function favImg(d,cls,tip){return '<span class="fav-wrap" data-tip="'+(tip||d)+'"><img class="'+(cls||'act-fav')+'" src="'+fav(d)+'" onerror="this.style.display=\'none\'"></span>';}
+/* overview charts */
+var _ovCharts={};
+function _destroyCharts(){Object.values(_ovCharts).forEach(function(c){try{c.destroy();}catch(e){}});_ovCharts={};}
+function renderOverview(){
+  _destroyCharts();
+  var bk=BRAND_CFG[currentBrand].key;
+  var pd=_filterPdByIntent(D.prompts[bk]);
+  var s=D.sentiment[bk];
+  var comps=intentFilter!=='all'?_dedupeComps(_buildIntentFilteredComps(bk)):_dedupeComps(D.competitors[bk]);
+  var cit=D.citations[bk];
+  var brandName=BRAND_CFG[currentBrand].name;
+
+  /* ── Visibility time series ─────────────────────────────────────────── */
+  var rh=RAW_HISTORY[currentBrand];
+  var inRangeDates=[];
+  if(rh&&rh.runDates&&rh.runDates.length){
+    var allD=rh.runDates,maxD=allD[allD.length-1];
+    if(currentTimeRange==='last-run'){inRangeDates=[maxD];}
+    else if(currentTimeRange==='all'){inRangeDates=allD;}
+    else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){inRangeDates=allD.filter(function(d){return d>=customStartDate&&d<=customEndDate;});}
+    else{var ndays={'last-7':7,'last-14':14,'last-20':20}[currentTimeRange];var cutoffD=_daysBack(maxD,ndays);inRangeDates=allD.filter(function(d){return d>=cutoffD;});}
+  }
+  var isLastRun=(currentTimeRange==='last-run')||inRangeDates.length<=1;
+  var top5comps=comps.slice(0,5);
+  var dayTotals={},dayBrandHits={},dayCompHits={};
+  top5comps.forEach(function(c){dayCompHits[c.name]={};});
+  inRangeDates.forEach(function(d){dayTotals[d]=0;dayBrandHits[d]=0;top5comps.forEach(function(c){dayCompHits[c.name][d]=0;});});
+  if(rh){
+    rh.prompts.forEach(function(rp){
+      if(intentFilter!=='all'&&String(rp.intent||'').toUpperCase()!==intentFilter)return;
+      rp.entries.filter(function(e){return inRangeDates.indexOf(e.date)>-1&&(activeModel==='all'||e.model===activeModel);}).forEach(function(e){
+        dayTotals[e.date]=(dayTotals[e.date]||0)+1;
+        if(e.hit)dayBrandHits[e.date]=(dayBrandHits[e.date]||0)+1;
+        top5comps.forEach(function(c){if((e.comps||[]).indexOf(c.name)>-1)dayCompHits[c.name][e.date]=(dayCompHits[c.name][e.date]||0)+1;});
+      });
+    });
+  }
+  var brandVis=inRangeDates.map(function(d){return dayTotals[d]>0?Math.round(dayBrandHits[d]/dayTotals[d]*100):null;});
+  var compVisSeries=top5comps.map(function(c){return {name:c.name,data:inRangeDates.map(function(d){return dayTotals[d]>0?Math.round((dayCompHits[c.name][d]||0)/dayTotals[d]*100):null;})};});
+
+  /* ── Competitor mentions ────────────────────────────────────────────── */
+  var compFiltered=activeModel==='all'?comps:comps.filter(function(c){return c.models&&c.models.indexOf(activeModel)>-1;});
+  var top8=compFiltered.slice(0,8);
+  if(activeModel!=='all'){
+    top8=compFiltered.map(function(c){var cnt=c.modelMentions&&c.modelMentions[activeModel]||0;return Object.assign({},c,{modelMentions:cnt});}).sort(function(a,b){return b.modelMentions-a.modelMentions;}).slice(0,8);
+  }
+
+  /* ── Sentiment ──────────────────────────────────────────────────────── */
+  var sMentions=activeModel==='all'?s.mentions:s.mentions.filter(function(m){return m.model===activeModel;});
+  var sentCounts={positive:0,neutral:0,negative:0,uncertain:0};
+  sMentions.forEach(function(m){if(sentCounts.hasOwnProperty(m.sentiment))sentCounts[m.sentiment]++;});
+
+  /* ── Model-filtered citations ───────────────────────────────────────── */
+  var activeCit=cit;
+  if(activeModel!=='all'&&D.modelCitations&&D.modelCitations[bk]&&D.modelCitations[bk][activeModel]){
+    var mc=D.modelCitations[bk][activeModel];
+    activeCit={
+      total:mc.total||cit.total,
+      uniqueUrls:cit.uniqueUrls,
+      uniqueDomains:mc.uniqueDomains||cit.uniqueDomains,
+      domainTypes:(mc.domainTypes&&mc.domainTypes.length)?mc.domainTypes:cit.domainTypes,
+      contentTypes:(mc.contentTypes&&mc.contentTypes.length)?mc.contentTypes:cit.contentTypes,
+      topDomains:(mc.topDomains&&mc.topDomains.length)?mc.topDomains:cit.topDomains,
+      topListicles:cit.topListicles,
+    };
+  }
+
+  /* ── Content & page types ───────────────────────────────────────────── */
+  var ct=activeCit.contentTypes.slice(0,6);
+  var ctLabels=ct.map(function(x){return x.type.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});});
+  var ctData=ct.map(function(x){return x.count;});
+  var dt=activeCit.domainTypes.slice(0,6);
+  var dtLabels=dt.map(function(x){return x.type.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});});
+  var dtData=dt.map(function(x){return x.count;});
+
+  /* ── Bar helper ─────────────────────────────────────────────────────── */
+  function ovBars(items,maxVal,fillClass){
+    return items.map(function(item){
+      var pct=maxVal>0?Math.round(item.val/maxVal*100):0;
+      return '<div class="ov-bar-row"><div class="ov-bar-lbl"><img src="'+fav(item.icon)+'" onerror="this.style.opacity=\'0\'" alt=""><span>'+item.label+'</span></div><div class="ov-bar-track"><div class="ov-bar-fill '+fillClass+'" style="width:'+pct+'%"></div></div><div class="ov-bar-val">'+item.sub+'</div></div>';
+    }).join('');
+  }
+
+  /* ── Model coverage items ───────────────────────────────────────────── */
+  var modelKeys=Object.keys(MODEL_META);
+  var covMax=pd.length||1;
+  var covItems=modelKeys.map(function(k){var mm=MODEL_META[k];var cnt=pd.filter(function(p){return p.models[k]&&p.models[k].mentioned;}).length;return {icon:mm.domain,label:mm.label,val:cnt,sub:cnt+' / '+pd.length};});
+  var covItemsFiltered=activeModel==='all'?covItems:covItems.filter(function(item){return item.label===(MODEL_META[activeModel]||{label:activeModel}).label;});
+
+  /* ── Competitor bar items ───────────────────────────────────────────── */
+  var compMax=top8[0]?(activeModel!=='all'?(top8[0].modelMentions||top8[0].mentions):top8[0].mentions):1;if(compMax===0)compMax=1;
+  var compItems=top8.map(function(c){var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');var mentionVal=activeModel!=='all'?(c.modelMentions||0):c.mentions;return {icon:cd,label:c.name,val:mentionVal,sub:mentionVal+' mentions'};});
+  var brandMentionCount=inRangeDates.reduce(function(s,d){return s+(dayBrandHits[d]||0);},0);
+  var _brandDomOv=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
+  var _brandPctOv=compMax>0?Math.round(brandMentionCount/compMax*100):0;
+  var _brandOvRow='<div class="ov-bar-row" style="background:rgba(79,70,229,.06);padding:6px 0;border-top:1.5px dashed rgba(79,70,229,.3);border-bottom:none"><div class="ov-bar-lbl" style="color:#4f46e5;font-weight:700"><img src="'+fav(_brandDomOv)+'" onerror="this.style.opacity=\'0\'" alt=""><span>You ('+brandName+')</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:'+_brandPctOv+'%;background:rgba(79,70,229,.85)"></div></div><div class="ov-bar-val" style="color:#4f46e5;font-weight:700">'+brandMentionCount+' mentions</div></div>';
+
+  /* ── Top domain items ───────────────────────────────────────────────── */
+  var topDom=activeCit.topDomains.slice(0,8),domMax=topDom[0]?topDom[0].count:1;
+  var domItems=topDom.map(function(d){return {icon:d.domain,label:d.domain,val:d.count,sub:d.count+' citations'};});
+
+  /* ── Render HTML ────────────────────────────────────────────────────── */
+  var visSubtitle=brandName+' vs top competitors &middot; '+(isLastRun?'last run snapshot':inRangeDates.length+' data points');
+  document.getElementById('ovContent').innerHTML=
+    '<div class="two-col" style="margin-bottom:14px">'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Visibility Over Time</div><div class="cc-sub">'+visSubtitle+'</div></div><div class="cc-body" style="height:260px;position:relative"><canvas id="ov-vis"></canvas></div><div id="ov-vis-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:8px 14px 4px;border-top:1px solid var(--border)"></div></div>'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Competitor Mentions</div><div class="cc-sub">'+(activeModel!=='all'?(MODEL_META[activeModel]||{label:activeModel}).label+' &middot; ':'')+'top 8 by mention count</div></div><div class="cc-body"><div class="ov-bar-wrap">'+ovBars(compItems,compMax,'ov-green')+_brandOvRow+'</div></div></div>'+
+    '</div>'+
+    '<div class="two-col" style="margin-bottom:14px">'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Sentiment Breakdown</div><div class="cc-sub">'+sMentions.length+' brand mention'+(sMentions.length!==1?'s':'')+' analysed</div></div><div class="cc-body" style="height:210px;position:relative"><canvas id="ov-sent"></canvas></div></div>'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Model Coverage</div><div class="cc-sub">prompts triggering a brand mention per AI model</div></div><div class="cc-body"><div class="ov-bar-wrap">'+ovBars(covItemsFiltered,covMax,'ov-indigo')+'</div></div></div>'+
+    '</div>'+
+    '<div class="two-col" style="margin-bottom:14px">'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Content Type Distribution</div><div class="cc-sub">how AI citation sources are classified</div></div><div class="cc-body" style="height:210px;position:relative"><canvas id="ov-ct"></canvas></div></div>'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Page Type Distribution</div><div class="cc-sub">structure of pages AI models cite most</div></div><div class="cc-body" style="height:210px;position:relative"><canvas id="ov-dt"></canvas></div></div>'+
+    '</div>'+
+    '<div style="margin-bottom:14px">'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Top Cited Domains</div><div class="cc-sub">leading citation sources</div></div><div class="cc-body"><div class="ov-bar-wrap">'+ovBars(domItems,domMax,'ov-violet')+'</div></div></div>'+
+    '</div>';
+
+  var styleId='ov-bar-style';
+  if(!document.getElementById(styleId)){var st=document.createElement('style');st.id=styleId;st.textContent='.ov-bar-fill.ov-indigo{background:rgba(79,70,229,.75)}.ov-bar-fill.ov-green{background:rgba(16,185,129,.75)}.ov-bar-fill.ov-violet{background:rgba(139,92,246,.75)}';document.head.appendChild(st);}
+  var baseFont={family:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',size:11};
+  var _donutTooltipCb={callbacks:{label:function(ctx){var sum=ctx.dataset.data.reduce(function(a,b){return a+b;},0);return ctx.label+': '+ctx.parsed+(sum>0?' ('+Math.round(ctx.parsed/sum*100)+'%)':'');}}};
+
+  /* ── Visibility line chart ──────────────────────────────────────────── */
+  var visColors=['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+  var visDatasets=[{label:brandName,data:brandVis,borderColor:visColors[0],backgroundColor:visColors[0]+'20',borderWidth:2.5,pointRadius:isLastRun?7:3,pointHoverRadius:7,fill:false,tension:0,showLine:!isLastRun,spanGaps:true}];
+  compVisSeries.forEach(function(cv,ci){visDatasets.push({label:cv.name,data:cv.data,borderColor:visColors[ci+1],backgroundColor:visColors[ci+1]+'20',borderWidth:1.5,pointRadius:isLastRun?6:2,pointHoverRadius:5,fill:false,tension:0,showLine:!isLastRun,borderDash:[],spanGaps:true});});
+  _ovCharts.vis=new Chart(document.getElementById('ov-vis'),{type:'line',data:{labels:inRangeDates.map(function(d){return d.slice(5);}),datasets:visDatasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{enabled:false,external:function(context){
+  var tt=context.tooltip;
+  var el=document.getElementById('vis-tooltip');
+  if(!el){el=document.createElement('div');el.id='vis-tooltip';el.style.cssText='position:absolute;background:#1e293b;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .1s;min-width:140px;';document.body.appendChild(el);}
+  if(tt.opacity===0){el.style.opacity='0';return;}
+  var label=tt.dataPoints&&tt.dataPoints[0]?'<div style="font-size:11px;color:rgba(255,255,255,.6);margin-bottom:6px">'+tt.title[0]+'</div>':'';
+  var rows=(tt.dataPoints||[]).map(function(dp){
+    var dsLabel=dp.dataset.label;
+    var domain;
+    var bk=currentBrand;
+    var brandDomain=BRAND_CFG[bk]&&BRAND_CFG[bk].domain;
+    var brandName=BRAND_CFG[bk]&&BRAND_CFG[bk].name;
+    if(dsLabel===brandName){domain=brandDomain;}
+    else{domain=COMP_DOMAINS[dsLabel]?(COMP_DOMAINS[dsLabel]):(dsLabel.toLowerCase().replace(/\s+(ai|digital|agency|media|labs?)$/,'').replace(/\s+/g,'')+'.com');}
+    var favUrl='https://www.google.com/s2/favicons?domain='+domain+'&sz=32';
+    var val=dp.parsed.y!==null?dp.parsed.y+'%':'N/A';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0"><img src="'+favUrl+'" style="width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.2)" onerror="this.style.display=\'none\'"><span style="flex:1;color:rgba(255,255,255,.85)">'+dsLabel+'</span><span style="font-weight:600;color:#fff">'+val+'</span></div>';
+  }).join('');
+  el.innerHTML=label+rows;
+  var pos=context.chart.canvas.getBoundingClientRect();
+  el.style.opacity='1';
+  el.style.left=(pos.left+window.scrollX+tt.caretX+12)+'px';
+  el.style.top=(pos.top+window.scrollY+tt.caretY-el.offsetHeight/2)+'px';
+}}},scales:{x:{ticks:{font:baseFont,maxTicksLimit:12},grid:{display:false}},y:{min:0,max:100,ticks:{font:baseFont,callback:function(v){return v+'%';}},grid:{color:'rgba(0,0,0,.05)'}}}}});
+  var visLegend=document.getElementById('ov-vis-legend');
+  if(visLegend){var brandDomain=BRAND_CFG[currentBrand].url||'aipeekaboo.com';var legendItems=[{label:brandName,domain:brandDomain,color:visColors[0]}];top5comps.forEach(function(c,ci){var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');legendItems.push({label:c.name,domain:cd,color:visColors[ci+1]});});visLegend.innerHTML=legendItems.map(function(item){return '<div style="display:flex;align-items:center;gap:5px"><div style="width:20px;height:2px;background:'+item.color+';flex-shrink:0"></div><img src="'+fav(item.domain)+'" style="width:14px;height:14px;border-radius:3px;border:1px solid #e5e7eb;flex-shrink:0" onerror="this.style.display=\'none\'"><span style="font-size:11px;color:#374151;white-space:nowrap">'+item.label+'</span></div>';}).join('');}
+
+  /* ── Sentiment donut ────────────────────────────────────────────────── */
+  _ovCharts.sent=new Chart(document.getElementById('ov-sent'),{type:'doughnut',data:{labels:['Positive','Neutral','Negative','Uncertain'],datasets:[{data:[sentCounts.positive,sentCounts.neutral,sentCounts.negative,sentCounts.uncertain],backgroundColor:['#22c55e','#94a3b8','#ef4444','#f59e0b'],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:baseFont,boxWidth:12,padding:10}},tooltip:_donutTooltipCb}}});
+
+  /* ── Content type donut ─────────────────────────────────────────────── */
+  var ctColors=['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308'];
+  _ovCharts.ct=new Chart(document.getElementById('ov-ct'),{type:'doughnut',data:{labels:ctLabels,datasets:[{data:ctData,backgroundColor:ctColors,borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:baseFont,boxWidth:12,padding:8}},tooltip:_donutTooltipCb}}});
+
+  /* ── Page type donut ────────────────────────────────────────────────── */
+  var dtColors=['#3b82f6','#06b6d4','#10b981','#84cc16','#f59e0b','#f97316'];
+  _ovCharts.dt=new Chart(document.getElementById('ov-dt'),{type:'doughnut',data:{labels:dtLabels,datasets:[{data:dtData,backgroundColor:dtColors,borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:baseFont,boxWidth:12,padding:8}},tooltip:_donutTooltipCb}}});
+}
+/* stats */
+function renderStats(){
+  var bk=BRAND_CFG[currentBrand].key,totalRuns=0,mentioned=0;
+  var pd=_filterPdByIntent(D.prompts[bk]);
+  pd.forEach(function(p){
+    if(activeModel==='all'){totalRuns+=p.totalRuns;mentioned+=p.mentions;}
+    else{var mr=p.models[activeModel];if(mr){totalRuns++;if(mr.mentioned)mentioned++;}}
+  });
+  var promptsMentioned=pd.filter(function(p){return activeModel==='all'?p.mentions>0:(p.models[activeModel]&&p.models[activeModel].mentioned);}).length;
+  var visPct=totalRuns>0?(mentioned/totalRuns*100).toFixed(1):'0.0';
+  var visCls=mentioned===0?'bad':parseFloat(visPct)<5?'warn':'good';
+  var bestScore=Math.max.apply(null,pd.map(function(p){
+    if(activeModel==='all'){
+      return Math.max.apply(null,Object.values(p.models).filter(function(m){return m&&m.score;}).map(function(m){return m.score;}).concat([0]));
+    } else {
+      return (p.models[activeModel]&&p.models[activeModel].score)||0;
+    }
+  }).concat([0]));
+  var bestScoreModel='';
+  if(activeModel!=='all'){
+    bestScoreModel=(MODEL_META[activeModel]||{label:activeModel}).label;
+  } else {
+    var bsm='',bsmVal=0;
+    pd.forEach(function(p){
+      Object.keys(p.models).forEach(function(mk){
+        var mv=p.models[mk];
+        if(mv&&mv.score&&mv.score>bsmVal){bsmVal=mv.score;bsm=mk;}
+      });
+    });
+    if(bsm)bestScoreModel=(MODEL_META[bsm]||{label:bsm}).label;
+  }
+  var c=D.citations[bk];
+  var citTotal=activeModel!=='all'&&D.modelCitations&&D.modelCitations[bk]&&D.modelCitations[bk][activeModel]?D.modelCitations[bk][activeModel].total:c.total;
+  /* sentiment score */
+  var s=D.sentiment[bk];
+  var sMentions=activeModel==='all'?s.mentions:s.mentions.filter(function(m){return m.model===activeModel;});
+  var sentPos=sMentions.filter(function(m){return m.sentiment==='positive';}).length;
+  var sentTotal=sMentions.length;
+  var sentPct=sentTotal>0?(sentPos/sentTotal*100).toFixed(0):null;
+  var sentCls=sentPct===null?'bad':parseInt(sentPct)>=60?'good':parseInt(sentPct)>=30?'warn':'bad';
+  /* avg position */
+  var allRanks=[];
+  pd.forEach(function(p){
+    if(activeModel==='all'){
+      Object.values(p.models).forEach(function(m){if(m&&m.mentioned&&m.rank)allRanks.push(m.rank);});
+    } else {
+      var mr=p.models[activeModel];if(mr&&mr.mentioned&&mr.rank)allRanks.push(mr.rank);
+    }
+  });
+  var avgPos=allRanks.length?(allRanks.reduce(function(a,r){return a+r;},0)/allRanks.length).toFixed(1):null;
+  var posCls=avgPos===null?'bad':parseFloat(avgPos)<=2?'good':parseFloat(avgPos)<=4?'warn':'bad';
+  var infoSvg='<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg>';
+  var bestScoreTip='Highest AI visibility score (0-100) achieved'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:' across all prompts and models')+'. Score reflects prominence and rank in the AI response';
+  document.getElementById('statRow').innerHTML=
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Percentage of total AI model runs where the brand was mentioned (total mentions / total runs across all prompts and models)">'+infoSvg+'</span>AI Visibility</div><div class="sc-val '+visCls+'">'+visPct+'%</div><div class="sc-sub">'+mentioned+' of '+totalRuns+' model runs include a mention</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of individual AI model query executions across all prompts">'+infoSvg+'</span>Model Runs</div><div class="sc-val">'+totalRuns+'</div><div class="sc-sub">'+promptsMentioned+' of '+pd.length+' prompts trigger a mention</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="'+bestScoreTip+'">'+infoSvg+'</span>Best Score</div><div class="sc-val '+(bestScore>0?'good':'bad')+'">'+(bestScore>0?bestScore:'None')+'</div><div class="sc-sub">'+(bestScore===100?'Rank 1 by '+(bestScoreModel||'AI'):bestScore>0?'highest ranking'+(bestScoreModel?' by '+bestScoreModel:''):'not ranked by any model')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of source URLs cited by AI models when answering prompts in this brand\'s topic area">'+infoSvg+'</span>Total Citations</div><div class="sc-val" style="color:var(--v)">'+citTotal.toLocaleString()+'</div><div class="sc-sub">'+c.uniqueDomains+' unique domains</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Share of brand mentions rated as positive sentiment out of all detected mentions">'+infoSvg+'</span>Sentiment Score</div><div class="sc-val '+(sentPct===null?'bad':sentCls)+'">'+(sentPct!==null?sentPct+'%':'N/A')+'</div><div class="sc-sub">'+(sentTotal>0?sentPos+' positive of '+sentTotal+' mentions':'no mentions detected')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Mean rank position across all AI responses where the brand was mentioned. Lower is better (rank 1 = first recommended)">'+infoSvg+'</span>Avg Position</div><div class="sc-val '+(avgPos===null?'bad':posCls)+'">'+(avgPos!==null?'#'+avgPos:'N/A')+'</div><div class="sc-sub">'+(allRanks.length?'across '+allRanks.length+' ranked responses':'no ranked mentions')+'</div></div>';
+}
+/* sort helpers */
+function setSortCol(col){
+  if(sortCol===col){sortDir=sortDir==='asc'?'desc':'asc';}
+  else{sortCol=col;sortDir=col==='position'?'asc':'desc';}
+  ['prompt','visibility','position','sentiment','competitors'].forEach(function(c){
+    var arr=document.getElementById('sa-'+c);
+    var th=document.getElementById('th-'+c);
+    if(!arr||!th)return;
+    if(c===sortCol){th.classList.add('sorted');arr.classList.add('sorted');arr.innerHTML=sortDir==='asc'?'&#8593;':'&#8595;';}
+    else{th.classList.remove('sorted');arr.classList.remove('sorted');arr.innerHTML='&#8597;';}
+  });
+  applyPromptFilter();
+}
+function sentWeight(s){return s==='positive'?3:s==='neutral'?2:s==='negative'?1:0;}
+function dominantSentiment(p){
+  var sents=Object.values(p.models).filter(function(m){return m&&m.mentioned&&m.sentiment;}).map(function(m){return m.sentiment;});
+  if(!sents.length)return null;
+  var counts={};sents.forEach(function(s){counts[s]=(counts[s]||0)+1;});
+  return Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];
+}
+function sortPrompts(arr){
+  return arr.slice().sort(function(a,b){
+    var av,bv,dir=sortDir==='desc'?-1:1;
+    if(sortCol==='prompt'){return dir*a.text.localeCompare(b.text);}
+    if(sortCol==='visibility'){
+      if(activeModel==='all'){
+        var aModels=Object.values(a.models);var bModels=Object.values(b.models);
+        av=aModels.length?aModels.filter(function(m){return m&&m.mentioned;}).length/aModels.length:0;
+        bv=bModels.length?bModels.filter(function(m){return m&&m.mentioned;}).length/bModels.length:0;
+      } else {
+        av=(a.models[activeModel]&&a.models[activeModel].mentioned)?1:0;
+        bv=(b.models[activeModel]&&b.models[activeModel].mentioned)?1:0;
+      }
+      return dir*(av-bv);
+    }
+    if(sortCol==='position'){
+      if(activeModel==='all'){
+        var aranks=Object.values(a.models).filter(function(m){return m&&m.mentioned&&m.rank;}).map(function(m){return m.rank;});
+        var branks=Object.values(b.models).filter(function(m){return m&&m.mentioned&&m.rank;}).map(function(m){return m.rank;});
+        av=aranks.length?(aranks.reduce(function(s,r){return s+r;},0)/aranks.length):999;
+        bv=branks.length?(branks.reduce(function(s,r){return s+r;},0)/branks.length):999;
+      } else {var am=a.models[activeModel],bm=b.models[activeModel];av=(am&&am.rank)||999;bv=(bm&&bm.rank)||999;}
+      return dir*(av-bv);
+    }
+    if(sortCol==='sentiment'){
+      if(activeModel==='all'){av=sentWeight(dominantSentiment(a));bv=sentWeight(dominantSentiment(b));}
+      else{var am2=a.models[activeModel],bm2=b.models[activeModel];av=sentWeight(am2&&am2.sentiment);bv=sentWeight(bm2&&bm2.sentiment);}
+      return dir*(av-bv);
+    }
+    if(sortCol==='competitors'){
+      var aTopC=0,bTopC=0;
+      var aPC=_promptComps&&_promptComps[a.id];
+      if(aPC){var aPCK=activeModel==='all'?'all':activeModel;var aPComps=aPC[aPCK]||aPC['all']||[];aTopC=aPComps.length?(aPComps[0].count||0):0;}
+      var bPC=_promptComps&&_promptComps[b.id];
+      if(bPC){var bPCK=activeModel==='all'?'all':activeModel;var bPComps=bPC[bPCK]||bPC['all']||[];bTopC=bPComps.length?(bPComps[0].count||0):0;}
+      return dir*(aTopC-bTopC);
+    }
+    return 0;
+  });
+}
+/* prompts */
+var _pd=[];
+var _promptComps={};
+var _promptCits={};
+function _buildPromptComps(bk){
+  var rh=RAW_HISTORY[bk];if(!rh)return;
+  var runDates=rh.runDates||[];
+  var maxDate=runDates.length?runDates[runDates.length-1]:null;
+  var cutoffDate=null,lastRunOnly=false,customEndPc=null;
+  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  else if(currentTimeRange==='last-7'&&maxDate){cutoffDate=_daysBack(maxDate,7);}
+  else if(currentTimeRange==='last-14'&&maxDate){cutoffDate=_daysBack(maxDate,14);}
+  else if(currentTimeRange==='last-20'&&maxDate){cutoffDate=_daysBack(maxDate,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){cutoffDate=customStartDate;customEndPc=customEndDate;}
+  function pcInRange(date){if(!date)return true;if(lastRunOnly)return date===maxDate;if(customEndPc)return date>=cutoffDate&&date<=customEndPc;if(cutoffDate)return date>=cutoffDate;return true;}
+  var result={};
+  (rh.prompts||[]).forEach(function(rp){
+    var pid=rp.id;
+    var allCounts={};var modelCounts={};
+    (rp.entries||[]).filter(function(e){return pcInRange(e.date);}).forEach(function(e){
+      var mk=e.model;
+      (e.comps||[]).forEach(function(c){
+        allCounts[c]=(allCounts[c]||0)+1;
+        if(!modelCounts[mk])modelCounts[mk]={};
+        modelCounts[mk][c]=(modelCounts[mk][c]||0)+1;
+      });
+    });
+    var toSorted=function(obj){return Object.keys(obj).map(function(n){return{name:n,count:obj[n]};}).sort(function(a,b){return b.count-a.count;});};
+    result[pid]={all:toSorted(allCounts)};
+    Object.keys(modelCounts).forEach(function(mk){result[pid][mk]=toSorted(modelCounts[mk]);});
+  });
+  _promptComps=result;
+}
+function _buildPromptCitations(bk){
+  var rh=RAW_HISTORY[bk];if(!rh)return;
+  var runDates=rh.runDates||[];var maxDate=runDates.length?runDates[runDates.length-1]:null;
+  var cutoffDate=null,lastRunOnly=false,customEndPct=null;
+  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  else if(currentTimeRange==='last-7'&&maxDate){cutoffDate=_daysBack(maxDate,7);}
+  else if(currentTimeRange==='last-14'&&maxDate){cutoffDate=_daysBack(maxDate,14);}
+  else if(currentTimeRange==='last-20'&&maxDate){cutoffDate=_daysBack(maxDate,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){cutoffDate=customStartDate;customEndPct=customEndDate;}
+  function pctInRange(date){if(!date)return true;if(lastRunOnly)return date===maxDate;if(customEndPct)return date>=cutoffDate&&date<=customEndPct;if(cutoffDate)return date>=cutoffDate;return true;}
+  var result={};
+  (rh.prompts||[]).forEach(function(rp){
+    var pid=rp.id;var allCounts={};var modelCounts={};
+    (rp.entries||[]).filter(function(e){return pctInRange(e.date);}).forEach(function(e){
+      var mk=e.model;
+      (e.srcs||[]).forEach(function(src){
+        if(!src.u)return;
+        var domain=_extractDomainJS(src.u);if(!domain)return;
+        allCounts[domain]=(allCounts[domain]||0)+1;
+        if(!modelCounts[mk])modelCounts[mk]={};
+        modelCounts[mk][domain]=(modelCounts[mk][domain]||0)+1;
+      });
+    });
+    var toSorted=function(obj){return Object.keys(obj).map(function(d){return{domain:d,count:obj[d]};}).sort(function(a,b){return b.count-a.count;});};
+    result[pid]={all:toSorted(allCounts)};
+    Object.keys(modelCounts).forEach(function(mk){result[pid][mk]=toSorted(modelCounts[mk]);});
+  });
+  _promptCits=result;
+}
+var _expandedPrompts=new Set();
+function togglePromptExpand(pid,btn){
+  var row=document.getElementById('exp-'+pid);
+  if(!row)return;
+  var isOpen=row.style.display!=='none';
+  if(isOpen){row.style.display='none';btn.innerHTML='&#9654;';_expandedPrompts.delete(pid);}
+  else{document.getElementById('expContent-'+pid).innerHTML=buildPromptExpandContent(pid);row.style.display='';btn.innerHTML='&#9660;';_expandedPrompts.add(pid);}
+}
+function buildPromptExpandContent(pid){
+  var rh=RAW_HISTORY[currentBrand];if(!rh)return '';
+  var runDates=rh.runDates||[];var maxDate=runDates.length?runDates[runDates.length-1]:null;
+  var cutoffDate=null,lastRunOnly=false,customEndExp=null;
+  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  else if(currentTimeRange==='last-7'&&maxDate){cutoffDate=_daysBack(maxDate,7);}
+  else if(currentTimeRange==='last-14'&&maxDate){cutoffDate=_daysBack(maxDate,14);}
+  else if(currentTimeRange==='last-20'&&maxDate){cutoffDate=_daysBack(maxDate,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){cutoffDate=customStartDate;customEndExp=customEndDate;}
+  function expInRange(date){if(!date)return true;if(lastRunOnly)return date===maxDate;if(customEndExp)return date>=cutoffDate&&date<=customEndExp;if(cutoffDate)return date>=cutoffDate;return true;}
+  var prompt=(rh.prompts||[]).find(function(rp){return rp.id===pid;});
+  if(!prompt)return '';
+  var urlData={};
+  (prompt.entries||[]).filter(function(e){
+    return expInRange(e.date)&&(activeModel==='all'||e.model===activeModel);
+  }).forEach(function(e){
+    (e.srcs||[]).forEach(function(src){
+      if(!src.u)return;
+      if(!urlData[src.u])urlData[src.u]={url:src.u,title:src.t||'',count:0,models:{},comps:{}};
+      urlData[src.u].count++;
+      urlData[src.u].models[e.model]=(urlData[src.u].models[e.model]||0)+1;
+      (e.comps||[]).forEach(function(c){if(c)urlData[src.u].comps[c]=(urlData[src.u].comps[c]||0)+1;});
+    });
+  });
+  var urls=Object.values(urlData).sort(function(a,b){return b.count-a.count;}).slice(0,10);
+  if(!urls.length)return '<div style="padding:10px 0 14px;color:var(--ink4);font-size:12px">No citations in selected range.</div>';
+  var rows=urls.map(function(u){
+    var domain=_extractDomainJS(u.url);
+    var label=u.title&&u.title!==u.url?u.title:u.url;if(label.length>65)label=label.slice(0,65)+'…';
+    var modelBadges=Object.keys(u.models).map(function(mk){
+      var mm=MODEL_META[mk]||{domain:'google.com',label:mk};
+      return '<span class="fav-wrap" data-tip="'+esc(mm.label)+' · '+u.models[mk]+'x"><img style="width:13px;height:13px;border-radius:2px" src="'+fav(mm.domain)+'" onerror="this.style.display=\'none\'"></span>';
+    }).join('');
+    var compBadges=Object.keys(u.comps).sort(function(a,b){return u.comps[b]-u.comps[a];}).slice(0,4).map(function(c){
+      var cd=COMP_DOMAINS[c]||(c.toLowerCase().replace(/\s+/g,'')+'.com');
+      return '<span class="fav-wrap" data-tip="'+esc(c)+' · '+u.comps[c]+'x"><img style="width:13px;height:13px;border-radius:2px" src="'+fav(cd)+'" onerror="this.style.display=\'none\'"></span>';
+    }).join('');
+    return '<tr style="border-top:1px solid var(--border)">'+
+      '<td style="padding:6px 10px"><div style="display:flex;align-items:center;gap:6px;max-width:360px"><img src="'+fav(domain)+'" style="width:13px;height:13px;flex-shrink:0;border-radius:2px" onerror="this.style.display=\'none\'"><a href="'+safeUrl(u.url)+'" target="_blank" rel="noopener" style="font-size:12px;color:var(--v);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+u.url+'">'+label+'</a></div></td>'+
+      '<td style="padding:6px 10px;text-align:center;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap">'+u.count+'×</td>'+
+      '<td style="padding:6px 10px"><div style="display:flex;gap:3px;flex-wrap:wrap">'+modelBadges+'</div></td>'+
+      '<td style="padding:6px 10px"><div style="display:flex;gap:3px;flex-wrap:wrap">'+(compBadges||'<span style="font-size:11px;color:var(--ink4)">—</span>')+'</div></td>'+
+    '</tr>';
+  }).join('');
+  return '<div style="padding:2px 0 10px">'+
+    '<table style="width:100%;border-collapse:collapse">'+
+    '<thead><tr style="background:var(--surface)">'+
+    '<th style="padding:5px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink4)">URLs with the most citations</th>'+
+    '<th style="padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink4)">Cited</th>'+
+    '<th style="padding:5px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink4)">Models</th>'+
+    '<th style="padding:5px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink4)">Competitors Mentioned<span class="info-tip" data-tip="Competitors that appeared in the same AI response as this URL — co-occurrence, not a direct link." style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function _intentBadge(it){if(!it)return '<span style="color:var(--ink4);font-size:11px">-</span>';var k=String(it).toUpperCase();var m={COMMERCIAL:['Commercial','#7c3aed'],TRANSACTIONAL:['Transactional','#16a34a'],INVESTIGATIONAL:['Investigational','#2563eb'],INFORMATIONAL:['Informational','#0891b2'],NAVIGATIONAL:['Navigational','#64748b'],BRANDED:['Branded','#d97706'],SENTIMENT:['Sentiment','#db2777']};var v=m[k]||[k.charAt(0)+k.slice(1).toLowerCase(),'#64748b'];return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:'+v[1]+';background:'+v[1]+'1a;white-space:nowrap">'+v[0]+'</span>';}
+function renderPrompts(){
+  var bk=BRAND_CFG[currentBrand].key;_pd=D.prompts[bk];_buildPromptComps(currentBrand);_buildPromptCitations(currentBrand);
+  document.getElementById('promptsSub').textContent=_pd.length+' prompts tracked · '+(activeModel==='all'?'all models':(MODEL_META[activeModel]||{label:activeModel}).label);
+  searchQuery=document.getElementById('promptSearch').value;applyPromptFilter();
+}
+function onPromptSearch(q){searchQuery=q;applyPromptFilter();}
+function setPromptFilter(f,btn){promptFilter=f;document.querySelectorAll('#panel-prompts .filter-bar .fb-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');applyPromptFilter();}
+function applyPromptFilter(){
+  var data=_pd.slice();
+  if(searchQuery)data=data.filter(function(p){return p.text.toLowerCase().indexOf(searchQuery.toLowerCase())>-1;});
+  if(promptFilter==='mentioned')data=data.filter(function(p){
+    if(activeModel==='all')return Object.values(p.models).some(function(m){return m&&m.mentioned;});
+    return !!(p.models[activeModel]&&p.models[activeModel].mentioned);
+  });
+  if(promptFilter==='not')data=data.filter(function(p){
+    if(activeModel==='all')return !Object.values(p.models).some(function(m){return m&&m.mentioned;});
+    return !(p.models[activeModel]&&p.models[activeModel].mentioned);
+  });
+  if(intentFilter!=='all')data=data.filter(function(p){return String(p.intent||'').toUpperCase()===intentFilter;});
+  data=sortPrompts(data);
+  var tbody=document.getElementById('promptsTbody');
+  if(!data.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--ink4)">No prompts match filter</td></tr>';return;}
+  tbody.innerHTML=data.map(function(p){
+    /* visibility */
+    var visBadge,mentionedModels;
+    if(activeModel==='all'){
+      mentionedModels=Object.values(p.models).filter(function(m){return m&&m.mentioned;}).length;
+      var totalModels=Object.keys(p.models).length||1;
+      var visPct=Math.round(mentionedModels/totalModels*100);
+      if(visPct===0)visBadge='<span class="vis-badge vis-none">0%</span>';
+      else if(visPct===100)visBadge='<span class="vis-badge vis-full">100%</span>';
+      else visBadge='<span class="vis-badge vis-part">'+visPct+'%</span>';
+    } else {
+      var mr=p.models[activeModel];
+      if(mr&&mr.mentioned)visBadge='<span class="vis-badge vis-full">100%</span>';
+      else visBadge='<span class="vis-badge vis-none">0%</span>';
+    }
+    /* position */
+    var posBadge;
+    if(activeModel==='all'){
+      var pRanks=Object.values(p.models).filter(function(m){return m&&m.mentioned&&m.rank;}).map(function(m){return m.rank;});
+      var avgRank=pRanks.length?(pRanks.reduce(function(s,r){return s+r;},0)/pRanks.length):null;
+      posBadge=avgRank?'<span class="pos-badge">#'+avgRank.toFixed(1)+'</span>':'<span style="color:var(--ink4);font-size:12px">-</span>';
+    } else {
+      var mr2=p.models[activeModel];
+      posBadge=(mr2&&mr2.rank)?'<span class="pos-badge">#'+mr2.rank+'</span>':'<span style="color:var(--ink4);font-size:12px">-</span>';
+    }
+    /* sentiment */
+    var sentBadge;
+    if(activeModel==='all'){
+      var ds=dominantSentiment(p);
+      if(ds){
+        var dsModels=Object.values(p.models).filter(function(m){return m&&m.mentioned&&m.score;});
+        var bestSentScore=dsModels.length?Math.max.apply(null,dsModels.map(function(m){return m.score;})):0;
+        sentBadge='<span class="sent-chip chip-'+ds+'">'+ds.charAt(0).toUpperCase()+ds.slice(1)+'</span>'+(bestSentScore?'<span style="font-size:11px;color:var(--ink4);margin-left:4px">'+bestSentScore+'</span>':'');
+      } else {
+        sentBadge='<span style="color:var(--ink4);font-size:12px">-</span>';
+      }
+    } else {
+      var mr3=p.models[activeModel];
+      var s3=mr3&&mr3.mentioned&&mr3.sentiment;
+      if(s3){
+        var sc3=mr3.score||0;
+        sentBadge='<span class="sent-chip chip-'+s3+'">'+s3.charAt(0).toUpperCase()+s3.slice(1)+'</span>'+(sc3?'<span style="font-size:11px;color:var(--ink4);margin-left:4px">'+sc3+'</span>':'');
+      } else {
+        sentBadge='<span style="color:var(--ink4);font-size:12px">-</span>';
+      }
+    }
+    /* model dots */
+    var dots=MODEL_ORDER.map(function(mk){
+      var mv=p.models[mk];var m=MODEL_META[mk]||{domain:'google.com',label:mk};
+      var hit=mv&&mv.mentioned;
+      var tip=m.label+': '+(hit?'Mentioned (score '+(mv.score||0)+', rank '+(mv.rank||'none')+')':'Not mentioned');
+      return '<div class="mdot-wrap" data-tip="'+tip+'"><img class="mdot-img'+(hit?'':' mdot-miss')+'" src="'+fav(m.domain)+'" onerror="this.src=\'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==\'"></div>';
+    }).join('');
+    /* top competitors from _promptComps */
+    var pComps=[];
+    var pcData=_promptComps[p.id];
+    if(pcData){var pcKey=activeModel==='all'?'all':activeModel;pComps=(pcData[pcKey]||pcData['all']||[]).slice(0,3);}
+    if(!pComps.length){
+      var bkC=BRAND_CFG[currentBrand].key;
+      var aggC=(D.competitors[bkC]||[]).filter(function(c){return!c.isBrand;});
+      if(activeModel!=='all'){aggC=aggC.filter(function(c){return c.modelMentions&&(c.modelMentions[activeModel]||0)>0;}).sort(function(a,b){return(b.modelMentions[activeModel]||0)-(a.modelMentions[activeModel]||0);});}
+      pComps=aggC.slice(0,3).map(function(c){var cnt=activeModel==='all'?c.mentions:(c.modelMentions&&c.modelMentions[activeModel]||0);return{name:c.name,count:cnt};});
+    }
+    var compIcons=pComps.map(function(pc){
+      var cd=COMP_DOMAINS[pc.name]||(pc.name.toLowerCase().replace(/\s+/g,'')+'.com');
+      var tip=esc(pc.name)+(pc.count?' · '+pc.count+' mention'+(pc.count!==1?'s':'')+(activeModel!=='all'?' in '+(MODEL_META[activeModel]||{label:activeModel}).label:''):'');
+      return '<div class="comp-iw"><img src="'+fav(cd)+'" onerror="this.style.display=\'none\'"><div class="comp-itip">'+tip+'</div></div>';
+    }).join('');
+    if(!compIcons)compIcons='<span style="color:var(--ink4);font-size:11px">-</span>';
+    /* top citations from _promptCits */
+    var pCitData=_promptCits[p.id];
+    var pCitKey=activeModel==='all'?'all':activeModel;
+    var pCitDomains=(pCitData&&(pCitData[pCitKey]||pCitData['all'])||[]).slice(0,5);
+    var citIcons=pCitDomains.map(function(pc){
+      var tip=pc.domain+(pc.count?' · '+pc.count+' citation'+(pc.count!==1?'s':'')+(activeModel!=='all'?' in '+(MODEL_META[activeModel]||{label:activeModel}).label:''):'');
+      return '<div class="comp-iw"><img src="'+fav(pc.domain)+'" onerror="this.style.display=\'none\'"><div class="comp-itip">'+tip+'</div></div>';
+    }).join('');
+    if(!citIcons)citIcons='<span style="color:var(--ink4);font-size:11px">-</span>';
+    var pid=p.id||'';
+    return '<tr>'+
+      '<td style="width:28px;text-align:center;padding:0">'+
+        '<button onclick="togglePromptExpand(\''+pid+'\',this)" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--ink3);padding:4px;line-height:1" title="Expand">&#9654;</button>'+
+      '</td>'+
+      '<td><div class="pt-text">'+esc(p.text)+'</div></td>'+
+      '<td>'+_intentBadge(p.intent)+'</td>'+
+      '<td>'+visBadge+'</td><td>'+posBadge+'</td><td>'+sentBadge+'</td>'+
+      '<td><div class="model-dots">'+dots+'</div></td>'+
+      '<td><div class="comp-icons">'+compIcons+'</div></td>'+
+      '<td><div class="comp-icons">'+citIcons+'</div></td>'+
+    '</tr>'+
+    '<tr id="exp-'+pid+'" style="display:none">'+
+      '<td colspan="9" style="padding:0 12px 0 36px;background:var(--surface)">'+
+        '<div id="expContent-'+pid+'"></div>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+  /* restore any rows that were open before the re-render */
+  _expandedPrompts.forEach(function(pid){
+    var row=document.getElementById('exp-'+pid);
+    if(!row)return;
+    document.getElementById('expContent-'+pid).innerHTML=buildPromptExpandContent(pid);
+    row.style.display='';
+    var btn=row.previousElementSibling&&row.previousElementSibling.querySelector('button');
+    if(btn)btn.innerHTML='&#9660;';
+  });
+}
+/* sentiment */
+function renderSentiment(){
+  var bk=BRAND_CFG[currentBrand].key,s=D.sentiment[bk];
+  var _sentIntentTexts=_intentPromptTexts(bk);
+  var mentions=s.mentions;
+  if(_sentIntentTexts)mentions=mentions.filter(function(m){return _sentIntentTexts.has(m.prompt);});
+  if(activeModel!=='all')mentions=mentions.filter(function(m){return m.model===activeModel;});
+  var tileCounts;
+  if(activeModel==='all'&&intentFilter==='all'){
+    tileCounts={positive:s.positive||0,neutral:s.neutral||0,negative:s.negative||0,uncertain:s.uncertain||0};
+  } else {
+    tileCounts={positive:0,neutral:0,negative:0,uncertain:0};
+    mentions.forEach(function(m){if(tileCounts.hasOwnProperty(m.sentiment))tileCounts[m.sentiment]++;});
+  }
+  if(sentimentFilter!=='all')mentions=mentions.filter(function(m){return m.sentiment===sentimentFilter;});
+  var tiles=[{cls:'spos',num:tileCounts.positive,lbl:'Positive'},{cls:'sneu',num:tileCounts.neutral,lbl:'Neutral'},{cls:'sneg',num:tileCounts.negative,lbl:'Negative'},{cls:'sunc',num:tileCounts.uncertain,lbl:'Uncertain'}].map(function(t){return '<div class="sent-tile '+t.cls+'"><div class="st-num">'+t.num+'</div><div class="st-lbl">'+t.lbl+'</div></div>';}).join('');
+  var el=document.getElementById('sentContent');
+  if(s.total_mentions===0){el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128202;</div><h3>No mentions detected</h3><p>'+BRAND_CFG[currentBrand].name+' was not mentioned in any of the 30 tracked prompts across 5 AI models. See the Actions tab for steps to achieve first mentions.</p></div></div></div>';return;}
+  if(!mentions.length){var noDataMsg=sentimentFilter!=='all'?'No '+sentimentFilter+' mentions for this filter. Try a different sentiment or switch to All.':(activeModel==='all'?'No mentions detected for current filter.':'No mentions for '+(MODEL_META[activeModel]||{label:activeModel}).label+'. Switch to "All models" or try Sonar.');el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128269;</div><h3>No matching mentions</h3><p>'+noDataMsg+'</p></div></div></div>';return;}
+  var cards=mentions.map(function(mn){
+    var mm=MODEL_META[mn.model]||{label:mn.model,domain:'google.com'};
+    var comps=(mn.competitors||[]).map(function(c){var cd=COMP_DOMAINS[c]||(c.toLowerCase().replace(/\s/g,'')+'.com');return '<span class="comp-tag" title="'+esc(c)+' was also recommended in this AI response"><img src="'+fav(cd,16)+'" style="width:12px;height:12px;border-radius:2px" onerror="this.style.display=\'none\'">'+esc(c)+'</span>';}).join('');
+    var compsSection=comps?'<div class="smc-comps-wrap"><div class="smc-comps-label">Other tools recommended in this response</div><div class="smc-comps">'+comps+'</div></div>':'';
+    return '<div class="sm-card"><div class="smc-head"><div class="smc-prompt">"'+esc(mn.prompt)+'"</div><div class="model-chip"><img src="'+fav(mm.domain,32)+'">'+mm.label+'</div></div><div class="smc-meta"><span>Rank: <b>#'+mn.rank+'</b></span><span>Score: <b>'+mn.score+'</b></span><span class="sent-chip chip-'+mn.sentiment+'">'+mn.sentiment.charAt(0).toUpperCase()+mn.sentiment.slice(1)+'</span></div><div class="smc-context">'+esc(mn.context)+'</div><div class="smc-reason">'+esc(mn.reason)+'</div>'+compsSection+'</div>';
+  }).join('');
+  el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-head"><div><div class="cc-title">Confirmed Mentions</div><div class="cc-sub">'+mentions.length+' mention'+(mentions.length!==1?'s':'')+', verified against full AI responses</div></div></div><div class="cc-body">'+cards+'</div></div>';
+}
+/* competitors */
+function renderCompetitors(){
+  var bk=BRAND_CFG[currentBrand].key;
+  var comps=intentFilter!=='all'?_dedupeComps(_buildIntentFilteredComps(bk)):_dedupeComps(D.competitors[bk].slice());
+  if(activeModel!=='all')comps=comps.filter(function(c){return c.models&&c.models.indexOf(activeModel)>-1;});
+  function _dc(c){return activeModel==='all'?c.mentions:(c.modelMentions&&c.modelMentions[activeModel]||0);}
+  if(activeModel!=='all')comps=comps.slice().sort(function(a,b){return _dc(b)-_dc(a);});
+  var max=comps[0]?_dc(comps[0]):1;if(max===0)max=1;
+  var _cpd=_filterPdByIntent(D.prompts[bk]);
+  var _brandMentionsComp=activeModel==='all'?_cpd.reduce(function(s,p){return s+(p.mentions||0);},0):_cpd.reduce(function(s,p){return s+((p.models&&p.models[activeModel]&&p.models[activeModel].mentioned)?1:0);},0);
+  var _bMentionedPd=_cpd.filter(function(p){return activeModel==='all'?p.mentions>0:(p.models&&p.models[activeModel]&&p.models[activeModel].mentioned);});
+  var _brandAvgComp=_bMentionedPd.length?Math.round(_bMentionedPd.reduce(function(s,p){return s+(activeModel==='all'?(p.avgScore||0):((p.models[activeModel]&&p.models[activeModel].score)||0));},0)/_bMentionedPd.length):0;
+  var _brandPctComp=max>0?(_brandMentionsComp/max*100).toFixed(0):0;
+  var _brandDomComp=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
+  var _brandCompName=BRAND_CFG[currentBrand].name;
+  var _brandCompRow='<div class="comp-row" style="background:rgba(79,70,229,.06);border-bottom:1.5px dashed rgba(79,70,229,.25)"><div class="comp-rank" style="color:#4f46e5;font-size:9px;font-weight:800;letter-spacing:.05em;width:20px">YOU</div><img class="comp-fav" src="'+fav(_brandDomComp)+'" onerror="this.style.display=\'none\'"><div class="comp-name" style="color:#4f46e5;font-weight:700">'+esc(_brandCompName)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+_brandPctComp+'%;background:rgba(79,70,229,.85)"></div></div><div class="comp-count" style="color:#4f46e5;font-weight:600">'+_brandMentionsComp+' mentions</div><div class="sdot sdot-pos" title="positive"></div></div>';
+  document.getElementById('compList').innerHTML=_brandCompRow+comps.slice(0,15).map(function(c,i){
+    var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');
+    var dispVal=_dc(c);
+    var pct=(dispVal/max*100).toFixed(0);
+    var sdotCls=c.topSentiment==='positive'?'sdot-pos':c.topSentiment==='negative'?'sdot-neg':'sdot-neu';
+    return '<div class="comp-row"><div class="comp-rank">'+(i+1)+'</div><img class="comp-fav" src="'+fav(cd)+'" onerror="this.style.display=\'none\'"><div class="comp-name">'+esc(c.name)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+pct+'%"></div></div><div class="comp-count">'+dispVal+' mentions</div><div class="sdot '+sdotCls+'" title="'+c.topSentiment+'"></div></div>';
+  }).join('')||'<p style="color:var(--ink4);font-size:13px">No competitors for this filter.</p>';
+  document.getElementById('compSub').textContent=comps.length+' competitors detected'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:'');
+  var top3=comps.slice(0,3);
+  document.getElementById('compInsight').innerHTML=top3.length?
+    '<div style="margin-bottom:14px"><div class="act-sect-label">Dominant competitors</div><p style="font-size:13px;color:var(--ink2);line-height:1.7;margin-top:6px"><b>'+esc(top3[0].name)+'</b> leads with '+_dc(top3[0])+' AI mentions at an average score of '+top3[0].avgScore+'.'+(top3[1]?' '+esc(top3[1].name)+' ('+_dc(top3[1])+' mentions) and '+(top3[2]?esc(top3[2].name)+' ('+_dc(top3[2])+')':'')+'follow.':'')+'</p></div><div><div class="act-sect-label">By sentiment</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:7px">'+comps.slice(0,7).map(function(c){var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');var col=c.topSentiment==='positive'?'#16a34a':c.topSentiment==='negative'?'#dc2626':'#64748b';return '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><img src="'+fav(cd)+'" style="width:14px;height:14px;border-radius:3px;border:1px solid var(--border)" onerror="this.style.display=\'none\'"><span style="flex:1;color:var(--ink)">'+esc(c.name)+'</span><span style="color:'+col+';font-weight:600;font-size:11px">'+c.topSentiment+'</span><span style="color:var(--ink4)">avg '+c.avgScore+'</span></div>';}).join('')+'</div></div>':
+    '<p style="color:var(--ink4);font-size:13px">No data for this filter.</p>';
+}
+/* citations */
+function buildUrlList(domain,bk){
+  var urls=(DURL[bk]&&DURL[bk][domain])||[];
+  if(activeModel!=='all'){
+    urls=urls.filter(function(u){return u.models.indexOf(activeModel)>-1;}).map(function(u){
+      var mc=u.mc&&u.mc[activeModel]?u.mc[activeModel]:1;
+      return Object.assign({},u,{displayCount:mc,filteredModels:[activeModel]});
+    });
+  } else {
+    urls=urls.map(function(u){return Object.assign({},u,{displayCount:u.count,filteredModels:u.models});});
+  }
+  if(!urls.length)return '<table class="dom-url-table"><tbody><tr><td colspan="5" style="color:var(--ink4);padding:14px;text-align:center">No URLs for this model filter.</td></tr></tbody></table>';
+  var rows=urls.map(function(u){
+    var mchips=u.filteredModels.map(function(m){
+      var mm=MODEL_META[m]||{domain:'google.com',label:m};
+      return '<span class="mdot-wrap" data-tip="'+esc(mm.label)+'"><img class="dom-url-td-mimg" src="'+fav(mm.domain)+'" onerror="this.style.display=\'none\'"></span>';
+    }).join('');
+    var pt=u.pageType?u.pageType.replace(/_/g,' ').replace(/\b\w/g,function(x){return x.toUpperCase();}):'<span style="color:var(--ink4)">—</span>';
+    var ct=u.contentType?u.contentType.replace(/_/g,' ').replace(/\b\w/g,function(x){return x.toUpperCase();}):'<span style="color:var(--ink4)">—</span>';
+    var ptBadge=u.pageType?'<span class="type-badge">'+pt+'</span>':pt;
+    var ctBadge=u.contentType?'<span class="type-badge">'+ct+'</span>':ct;
+    return '<tr>'+
+      '<td class="dom-url-td-title"><a href="'+safeUrl(u.url)+'" target="_blank" rel="noopener" title="'+u.url+'">'+u.title.slice(0,68)+'</a></td>'+
+      '<td class="dom-url-td-cnt tc">'+u.displayCount+'×</td>'+
+      '<td class="tc">'+ptBadge+'</td>'+
+      '<td class="tc">'+ctBadge+'</td>'+
+      '<td class="tc"><div class="dom-url-td-models">'+mchips+'</div></td>'+
+    '</tr>';
+  }).join('');
+  return '<table class="dom-url-table"><thead><tr><th>URL / Title</th><th class="tc">Cited</th><th class="tc">Page Type</th><th class="tc">Content Type</th><th class="tc">AI Models</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function toggleDomRow(id,domain,bk){
+  var panel=document.getElementById(id);
+  var tr=document.getElementById('tr-'+id);
+  if(panel.classList.contains('open')){
+    panel.classList.remove('open');
+    if(tr)tr.classList.remove('dom-row-open');
+  } else {
+    panel.innerHTML=buildUrlList(domain,bk);
+    panel.classList.add('open');
+    if(tr)tr.classList.add('dom-row-open');
+  }
+}
+var activeCitComp='all';
+var _compCitsByDomain={};
+function buildCompUrlList(domain){
+  var urls=_compCitsByDomain[domain]||[];
+  if(!urls.length)return '<table class="dom-url-table"><tbody><tr><td colspan="5" style="color:var(--ink4);padding:14px;text-align:center">No URLs available.</td></tr></tbody></table>';
+  var rows=urls.map(function(u){
+    var mchips=(u.models||[]).map(function(m){var mm=MODEL_META[m]||{domain:'google.com',label:m};return '<span class="mdot-wrap" data-tip="'+esc(mm.label)+'"><img class="dom-url-td-mimg" src="'+fav(mm.domain)+'" onerror="this.style.display=\'none\'"></span>';}).join('');
+    var pt=u.pageType?u.pageType.replace(/_/g,' ').replace(/\b\w/g,function(x){return x.toUpperCase();}):'<span style="color:var(--ink4)">—</span>';
+    var ct=u.contentType?u.contentType.replace(/_/g,' ').replace(/\b\w/g,function(x){return x.toUpperCase();}):'<span style="color:var(--ink4)">—</span>';
+    var ptBadge=u.pageType?'<span class="type-badge">'+pt+'</span>':pt;
+    var ctBadge=u.contentType?'<span class="type-badge">'+ct+'</span>':ct;
+    return '<tr><td class="dom-url-td-title"><a href="'+safeUrl(u.url)+'" target="_blank" rel="noopener" title="'+u.url+'">'+u.title.slice(0,68)+'</a></td><td class="dom-url-td-cnt tc">'+u.count+'×</td><td class="tc">'+ptBadge+'</td><td class="tc">'+ctBadge+'</td><td class="tc"><div class="dom-url-td-models">'+mchips+'</div></td></tr>';
+  }).join('');
+  return '<table class="dom-url-table"><thead><tr><th>URL / Title</th><th class="tc">Cited</th><th class="tc">Page Type</th><th class="tc">Content Type</th><th class="tc">AI Models</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function toggleCompDomRow(id,domain){
+  var panel=document.getElementById(id);var tr=document.getElementById('tr-'+id);
+  if(panel.classList.contains('open')){panel.classList.remove('open');if(tr)tr.classList.remove('dom-row-open');}
+  else{panel.innerHTML=buildCompUrlList(domain);panel.classList.add('open');if(tr)tr.classList.add('dom-row-open');}
+}
+function _buildCompCits(bk){
+  var rh=RAW_HISTORY[bk];if(!rh)return{};
+  // Date range filter matching current time range selection
+  var runDates=rh.runDates||[];var maxDateCc=runDates.length?runDates[runDates.length-1]:null;
+  var ccCutoff=null,ccEnd=null,ccLastRun=false;
+  if(currentTimeRange==='last-run'){ccLastRun=true;}
+  else if(currentTimeRange==='last-7'&&maxDateCc){ccCutoff=_daysBack(maxDateCc,7);}
+  else if(currentTimeRange==='last-14'&&maxDateCc){ccCutoff=_daysBack(maxDateCc,14);}
+  else if(currentTimeRange==='last-20'&&maxDateCc){ccCutoff=_daysBack(maxDateCc,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){ccCutoff=customStartDate;ccEnd=customEndDate;}
+  function ccInRange(date){if(!date)return true;if(ccLastRun)return date===maxDateCc;if(ccEnd)return date>=ccCutoff&&date<=ccEnd;if(ccCutoff)return date>=ccCutoff;return true;}
+  // First pass: collect all citations per normalized comp key
+  var normData={};
+  (rh.prompts||[]).forEach(function(rp){
+    if(intentFilter!=='all'&&String(rp.intent||'').toUpperCase()!==intentFilter)return;
+    (rp.entries||[]).filter(function(e){return ccInRange(e.date);}).forEach(function(e){
+      if(!e.comps||!e.comps.length||!e.srcs||!e.srcs.length)return;
+      e.comps.forEach(function(c){
+        var norm=_normComp(c);
+        if(!normData[norm])normData[norm]={names:{},cits:[]};
+        normData[norm].names[c]=(normData[norm].names[c]||0)+1;
+        e.srcs.forEach(function(s){
+          var existing=normData[norm].cits.find(function(x){return x.url===s.u;});
+          if(existing){existing.count++;if(e.model&&existing.models.indexOf(e.model)===-1)existing.models.push(e.model);}
+          else normData[norm].cits.push({url:s.u,title:s.t,domain:(s.u.match(/https?:\/\/([^\/]+)/)||[])[1]||'',count:1,models:e.model?[e.model]:[],pageType:s.pt,contentType:s.ct});
+        });
+      });
+    });
+  });
+  // Second pass: build result keyed by canonical name (most-mentioned raw name per norm group)
+  var result={};
+  Object.keys(normData).forEach(function(norm){
+    var nd=normData[norm];
+    var canonical=Object.keys(nd.names).reduce(function(best,n){return nd.names[n]>nd.names[best]?n:best;});
+    nd.cits.sort(function(a,b){return b.count-a.count;});
+    result[canonical]=nd.cits;
+    // Also index by norm key for fallback lookup
+    result['__norm__'+norm]=nd.cits;
+  });
+  return result;
+}
+var _compCitsCache={};
+function _getCompCits(bk){if(!_compCitsCache[bk])_compCitsCache[bk]=_buildCompCits(bk);return _compCitsCache[bk];}
+function toggleCitDd(){var m=document.getElementById('citCompMenu');if(m)m.classList.toggle('open');}
+document.addEventListener('click',function(e){var dd=document.getElementById('citCompDd');if(dd&&!dd.contains(e.target)){var m=document.getElementById('citCompMenu');if(m)m.classList.remove('open');}});
+function setCitComp(name,btn){activeCitComp=name;renderCitations();}
+function _buildBrandCits(bk){
+  var rh=RAW_HISTORY[bk];if(!rh)return[];
+  var runDates=rh.runDates||[];var maxDate=runDates.length?runDates[runDates.length-1]:null;
+  var cutoff=null,endDate=null,lastRunOnly=false;
+  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  else if(currentTimeRange==='last-7'&&maxDate){cutoff=_daysBack(maxDate,7);}
+  else if(currentTimeRange==='last-14'&&maxDate){cutoff=_daysBack(maxDate,14);}
+  else if(currentTimeRange==='last-20'&&maxDate){cutoff=_daysBack(maxDate,20);}
+  else if(currentTimeRange==='custom'&&customStartDate&&customEndDate){cutoff=customStartDate;endDate=customEndDate;}
+  function inRange(d){if(!d)return true;if(lastRunOnly)return d===maxDate;if(endDate)return d>=cutoff&&d<=endDate;if(cutoff)return d>=cutoff;return true;}
+  var urlMap={};
+  (rh.prompts||[]).forEach(function(rp){
+    if(intentFilter!=='all'&&String(rp.intent||'').toUpperCase()!==intentFilter)return;
+    (rp.entries||[]).forEach(function(e){
+      if(!e.hit||!e.srcs||!e.srcs.length)return;
+      if(!inRange(e.date))return;
+      if(activeModel!=='all'&&e.model!==activeModel)return;
+      e.srcs.forEach(function(s){
+        var key=s.u;
+        if(urlMap[key]){urlMap[key].count++;if(e.model&&urlMap[key].models.indexOf(e.model)===-1)urlMap[key].models.push(e.model);}
+        else urlMap[key]={url:s.u,title:s.t||s.u,domain:(s.u.match(/https?:\/\/([^\/]+)/)||[])[1]||'',count:1,models:e.model?[e.model]:[],pageType:s.pt,contentType:s.ct};
+      });
+    });
+  });
+  return Object.values(urlMap).sort(function(a,b){return b.count-a.count;});
+}
+function _barRows(items,total){return items.map(function(x){var pct=total>0?(x.count/total*100).toFixed(1):0;var lbl=x.type.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});return '<div class="bar-row"><div class="bar-label">'+lbl+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div><div class="bar-val">'+x.count+'</div></div>';}).join('');}
+function renderCitations(){
+  var bk=BRAND_CFG[currentBrand].key,c;
+  /* base citation data */
+  if(activeModel!=='all'&&D.modelCitations&&D.modelCitations[bk]&&D.modelCitations[bk][activeModel]){
+    c=Object.assign({},D.modelCitations[bk][activeModel]);
+    c.uniqueDomains=c.topDomains?c.topDomains.length:D.citations[bk].uniqueDomains;
+    c.topListicles=D.citations[bk].topListicles;
+  } else c=D.citations[bk];
+  /* competitor/brand filter setup */
+  var compCits=_getCompCits(currentBrand);
+  var _brandCitsArr=_buildBrandCits(currentBrand);
+  var useBrandFilter=activeCitComp==='__brand__';
+  var useCompFilter=!useBrandFilter&&activeCitComp!=='all'&&(compCits[activeCitComp]||compCits['__norm__'+_normComp(activeCitComp)]);
+  var chevDdSvg='<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="width:10px;height:10px;flex-shrink:0"><path d="M1 1l4 4 4-4"/></svg>';
+  var allComps=_dedupeComps((D.competitors[bk]||[]).filter(function(cp){return!cp.isBrand;})).slice(0,15);
+  var _citBrandName=BRAND_CFG[currentBrand].name;
+  var _citBrandDom=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
+  var activeCd=activeCitComp==='all'?null:useBrandFilter?_citBrandDom:((COMP_DOMAINS&&COMP_DOMAINS[activeCitComp])||(activeCitComp.toLowerCase().replace(/\s+/g,'')+'.com'));
+  var triggerContent=(activeCd?'<img src="'+fav(activeCd)+'" onerror="this.style.display=\'none\'">':'')+'<span>'+(activeCitComp==='all'?'All Citations':useBrandFilter?'You ('+_citBrandName+')':activeCitComp)+'</span>'+chevDdSvg;
+  var ddOpts='<div class="cit-comp-opt'+(activeCitComp==='all'?' active':'')+'" onclick="setCitComp(\'all\',this)">All Citations</div>';
+  ddOpts+='<div class="cit-comp-opt'+(useBrandFilter?' active':'')+'" style="border-bottom:1px solid var(--border);background:'+(useBrandFilter?'var(--surface2)':'rgba(79,70,229,.04)')+'" onclick="setCitComp(\'__brand__\',this)"><img src="'+fav(_citBrandDom)+'" onerror="this.style.display=\'none\'"><span style="color:#4f46e5;font-weight:'+(useBrandFilter?'700':'500')+'">You ('+_citBrandName+')</span></div>';
+  ddOpts+=allComps.map(function(comp){
+    var isActive=activeCitComp===comp.name;
+    var cd=(COMP_DOMAINS&&COMP_DOMAINS[comp.name])||(comp.name.toLowerCase().replace(/\s+/g,'')+'.com');
+    return '<div class="cit-comp-opt'+(isActive?' active':'')+'" onclick="setCitComp(\''+comp.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',this)"><img src="'+fav(cd)+'" onerror="this.style.display=\'none\'">'+comp.name+'</div>';
+  }).join('');
+  var filterBar='<div class="cit-comp-bar"><span class="cit-comp-label">Filter by competitor</span><div class="cit-comp-dd" id="citCompDd"><button class="cit-comp-trigger" onclick="toggleCitDd()">'+triggerContent+'</button><div class="cit-comp-menu" id="citCompMenu">'+ddOpts+'</div></div></div>';
+  /* compute domain/content type bars, possibly filtered by brand or competitor */
+  var compUrls=useCompFilter?(compCits[activeCitComp]||compCits['__norm__'+_normComp(activeCitComp)]):useBrandFilter?_brandCitsArr:null;
+  var domainCounts={},contentCounts={},typeCounts={};
+  if(useCompFilter&&compUrls){
+    compUrls.forEach(function(cu){
+      domainCounts[cu.domain]=(domainCounts[cu.domain]||0)+cu.count;
+      if(cu.pageType)typeCounts[cu.pageType]=(typeCounts[cu.pageType]||0)+cu.count;
+      if(cu.contentType)contentCounts[cu.contentType]=(contentCounts[cu.contentType]||0)+cu.count;
+    });
+    var tdt=Object.values(typeCounts).reduce(function(a,b){return a+b;},0)||1;
+    var tct=Object.values(contentCounts).reduce(function(a,b){return a+b;},0)||1;
+    var dtSorted=Object.keys(typeCounts).map(function(k){return{type:k,count:typeCounts[k]};}).sort(function(a,b){return b.count-a.count;});
+    var ctSorted=Object.keys(contentCounts).map(function(k){return{type:k,count:contentCounts[k]};}).sort(function(a,b){return b.count-a.count;});
+    var dtBars=_barRows(dtSorted,tdt)||'<p style="color:var(--ink4);font-size:13px;padding:12px">No data for this filter.</p>';
+    var ctBars=_barRows(ctSorted.slice(0,10),tct)||'<p style="color:var(--ink4);font-size:13px;padding:12px">No data for this filter.</p>';
+    var compTopDomains=Object.keys(domainCounts).map(function(d){return{domain:d,count:domainCounts[d]};}).sort(function(a,b){return b.count-a.count;}).slice(0,20);
+    var totalComp=compUrls.reduce(function(s,cu){return s+cu.count;},0);
+    /* build per-domain URL lookup for expandable rows */
+    _compCitsByDomain={};
+    compUrls.forEach(function(cu){if(!_compCitsByDomain[cu.domain])_compCitsByDomain[cu.domain]=[];_compCitsByDomain[cu.domain].push(cu);});
+    Object.keys(_compCitsByDomain).forEach(function(d){_compCitsByDomain[d].sort(function(a,b){return b.count-a.count;});});
+    var chevSvg2='<svg class="dom-chev" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>';
+    var domRows=compTopDomains.map(function(d,i){
+      var t=DCAT&&DCAT[d.domain]?DCAT[d.domain]:'AI/SaaS Blog';
+      var panelId='cdp-'+currentBrand+'-'+i;
+      var hasUrls=(_compCitsByDomain[d.domain]||[]).length>0;
+      var domCell=hasUrls
+        ?'<td onclick="toggleCompDomRow(\''+panelId+'\',\''+d.domain+'\')" class="dom-row-clickable" style="display:flex;align-items:center">'+chevSvg2+'<img class="dom-fav" src="'+fav(d.domain)+'" onerror="this.style.display=\'none\'" style="margin-right:5px"><b>'+d.domain+'</b></td>'
+        :'<td style="display:flex;align-items:center"><img class="dom-fav" src="'+fav(d.domain)+'" onerror="this.style.display=\'none\'" style="margin-right:5px"><b>'+d.domain+'</b></td>';
+      return '<tr id="tr-'+panelId+'"><td style="color:var(--ink4);font-size:12px;width:24px">'+(i+1)+'</td>'+domCell+'<td><span class="type-badge">'+t+'</span></td><td style="text-align:right;font-weight:600;color:var(--v)">'+d.count+'</td></tr>'+
+        '<tr class="dom-expand-row"><td colspan="4"><div class="dom-url-panel" id="'+panelId+'"></div></td></tr>';
+    }).join('');
+    document.getElementById('citContent').innerHTML=
+      filterBar+
+      '<div class="two-col">'+
+        '<div class="cc"><div class="cc-head"><div class="cc-title">Page Type</div><div class="cc-sub">'+totalComp.toLocaleString()+' citations with '+(useBrandFilter?'You ('+_citBrandName+')':activeCitComp)+'</div></div><div class="cc-body">'+dtBars+'</div></div>'+
+        '<div class="cc"><div class="cc-head"><div class="cc-title">Content Type</div><div class="cc-sub">when '+(useBrandFilter?'You ('+_citBrandName+')':activeCitComp)+' is mentioned</div></div><div class="cc-body">'+ctBars+'</div></div>'+
+      '</div>'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Top Cited Domains</div><div class="cc-sub">co-occurring with '+(useBrandFilter?'You ('+_citBrandName+')':activeCitComp)+' mentions</div></div>'+
+        '<div class="cc-body np"><table class="dom-table"><thead><tr><th>#</th><th>Domain</th><th>Domain Type</th><th style="text-align:right">Citations</th></tr></thead><tbody>'+domRows+'</tbody></table></div>'+
+      '</div>';
+    return;
+  }
+  /* default (all citations) path */
+  var tdt=c.domainTypes.reduce(function(a,x){return a+x.count;},0);
+  var tct=c.contentTypes.reduce(function(a,x){return a+x.count;},0);
+  var dtBars=_barRows(c.domainTypes,tdt);
+  var ctBars=_barRows(c.contentTypes.slice(0,10),tct);
+  var chevSvg='<svg class="dom-chev" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>';
+  var domRows=c.topDomains.slice(0,20).map(function(d,i){
+    var t=DCAT&&DCAT[d.domain]?DCAT[d.domain]:'AI/SaaS Blog';
+    var panelId='dup-'+currentBrand+'-'+i;
+    var hasUrls=DURL[bk]&&DURL[bk][d.domain]&&DURL[bk][d.domain].length>0;
+    var domCell=hasUrls
+      ?'<td onclick="toggleDomRow(\''+panelId+'\',\''+d.domain+'\',\''+bk+'\')" class="dom-row-clickable" style="display:flex;align-items:center">'+chevSvg+'<img class="dom-fav" src="'+fav(d.domain)+'" onerror="this.style.display=\'none\'" style="margin-right:5px"><b>'+d.domain+'</b></td>'
+      :'<td style="display:flex;align-items:center"><img class="dom-fav" src="'+fav(d.domain)+'" onerror="this.style.display=\'none\'" style="margin-right:5px"><b>'+d.domain+'</b></td>';
+    return '<tr id="tr-'+panelId+'"><td style="color:var(--ink4);font-size:12px;width:24px">'+(i+1)+'</td>'+domCell+'<td><span class="type-badge">'+t+'</span></td><td style="text-align:right;font-weight:600;color:var(--v)">'+d.count+'</td></tr>'+
+      '<tr class="dom-expand-row"><td colspan="4"><div class="dom-url-panel" id="'+panelId+'"></div></td></tr>';
+  }).join('');
+  var ltRows=(c.topListicles||[]).slice(0,8).map(function(l){
+    return '<tr><td><img class="dom-fav" src="'+fav(l.domain)+'" onerror="this.style.display=\'none\'"><b>'+l.domain+'</b></td><td style="font-size:12px;color:var(--ink3)">'+esc(l.title.slice(0,62))+'</td><td style="text-align:right;font-weight:600;color:var(--v)">'+l.count+'x</td></tr>';
+  }).join('');
+  document.getElementById('citContent').innerHTML=
+    filterBar+
+    '<div class="two-col">'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Page Type</div><div class="cc-sub">'+tdt.toLocaleString()+' total citations</div></div><div class="cc-body">'+dtBars+'</div></div>'+
+      '<div class="cc"><div class="cc-head"><div class="cc-title">Content Type</div><div class="cc-sub">how AI sources are classified</div></div><div class="cc-body">'+ctBars+'</div></div>'+
+    '</div>'+
+    '<div class="cc"><div class="cc-head"><div class="cc-title">Top 20 Cited Domains</div><div class="cc-sub">'+(c.uniqueDomains||'')+' unique domains'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:'')+'</div></div>'+
+      '<div class="cc-body np"><table class="dom-table"><thead><tr><th>#</th><th>Domain</th><th>Domain Type</th><th style="text-align:right">Citations</th></tr></thead><tbody>'+domRows+'</tbody></table></div>'+
+    '</div>'+
+    (ltRows?'<div class="cc"><div class="cc-head"><div class="cc-title">Top Listicle Articles</div><div class="cc-sub">highest-priority inclusion targets</div></div><div class="cc-body np"><table class="dom-table"><thead><tr><th>Domain</th><th>Article</th><th style="text-align:right">Cited</th></tr></thead><tbody>'+ltRows+'</tbody></table></div></div>':'');
+}
+/* actions */
+function setActFilter(f,btn){actFilter=f;document.querySelectorAll('.act-fb').forEach(x=>x.classList.remove('active'));btn.classList.add('active');renderActionsGrid();}
+var SN=['sn1','sn2','sn3','sn4','sn0'];
+var chevSVG='<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>';
+function renderActionsGrid(){
+  var actions=ACTIONS[currentBrand];
+  var filtered=actFilter==='all'?actions:actFilter==='high'?actions.filter(function(a){return a.priority==='high';}):actFilter==='medium'?actions.filter(function(a){return a.priority==='medium';}):actions.filter(function(a){return a.cat.toLowerCase().indexOf(actFilter.toLowerCase())>-1;});
+  document.getElementById('actGrid').innerHTML=filtered.map(function(a,idx){
+    var favHtml=(a.favDomains||[]).map(function(d){return favImg(d,'act-fav',d);}).join('');
+    var sigText=a.signals.join(' &middot; ');
+    var steps=a.steps.map(function(s,i){return '<li class="act-step"><span class="act-step-num '+SN[i%5]+'">'+(i+1)+'</span><span>'+s+'</span></li>';}).join('');
+    var platFavs=(a.platDomains||[]).map(function(d){return favImg(d,'act-platform-fav',d);}).join('');
+    var iconHtml=ICONS[a.icon]||a.icon;
+    return '<div class="act-card collapsed" id="actc-'+idx+'">'+
+      '<div class="act-card-head" onclick="toggleAct(\'actc-'+idx+'\')">'+
+        '<div class="act-icon">'+iconHtml+'</div>'+
+        '<div class="act-meta">'+
+          '<div class="act-head-row"><span class="act-effort-label">'+a.effort+'</span><span class="act-head-sep">&middot;</span><span class="act-cat-label">'+a.cat.toUpperCase()+'</span><span class="act-pri-dot pri-'+a.priority+'" title="'+a.priority+' priority"></span></div>'+
+          '<div class="act-title">'+a.title+'</div>'+
+          '<div class="act-sig-fav-row"><div class="act-signals">'+sigText+'</div>'+(favHtml?'<div class="act-favs">'+favHtml+'</div>':'')+' </div>'+
+        '</div>'+
+        '<div class="act-head-right"><button class="act-toggle">'+chevSVG+'</button></div>'+
+      '</div>'+
+      '<div class="act-body">'+
+        '<div class="act-sect"><div class="act-sect-label">Why it matters</div><p>'+a.why+'</p></div>'+
+        '<div class="act-sect"><div class="act-sect-label">Steps</div><ul class="act-steps-list">'+steps+'</ul></div>'+
+        '<div class="act-sect"><div class="act-sect-label">Expected outcome</div><div class="act-outcome">'+a.outcome+'</div></div>'+
+        (platFavs?'<div class="act-plat-row"><span class="act-plat-label">Relevant sources</span>'+platFavs+'</div>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+function toggleAct(id){var card=document.getElementById(id);var wasCollapsed=card.classList.contains('collapsed');document.querySelectorAll('.act-card').forEach(function(c){c.classList.add('collapsed');});if(wasCollapsed)card.classList.remove('collapsed');}
+_applyTimeRange();
+renderAll();
+</script>
+</body>
+</html>

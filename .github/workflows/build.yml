@@ -1,0 +1,60 @@
+name: Build & Deploy AI Visibility Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Every day at 6am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build report
+        env:
+          AIPEEKABOO_API_KEY: ${{ secrets.AIPEEKABOO_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          OUTPUT_FILE: index.html
+        run: python build_fast.py --config config.json
+
+      - name: Commit and push updated report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet && echo "No changes to commit" || git commit -m "Daily report refresh: $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Scheduled report build failed — ${new Date().toISOString().slice(0,10)}`,
+              body: `The scheduled AI Visibility Report build failed.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['build-failure']
+            });

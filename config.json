@@ -1,0 +1,15 @@
+{
+  "aipeekaboo_api_key": "pk_placeholder_overridden_by_secret",
+  "llm_provider": "openai",
+  "llm_api_key": "sk-placeholder-overridden-by-secret",
+  "brands": [
+    {
+      "id": "8341c779-0cbf-4967-8d3c-9b2ca5fc03aa",
+      "name": "Vicci Eyewear",
+      "key": "vicci",
+      "domain": "viccieyewear.com"
+    }
+  ],
+  "report_title": "Vicci Eyewear — AI Visibility Report",
+  "output_file": "index.html"
+}
