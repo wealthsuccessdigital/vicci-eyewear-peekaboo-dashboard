@@ -354,6 +354,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
     <button class="stab" onclick="switchTab('competitors',this)">Competitors</button>
     <button class="stab" onclick="switchTab('citations',this)">Citations</button>
     <button class="stab" onclick="switchTab('actions',this)">Actions</button>
+    <button class="stab" onclick="switchTab('search',this)">Search &amp; Traffic</button>
   </div>
 </nav>
 <div class="wrap">
@@ -424,6 +425,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
     <div class="act-grid" id="actGrid"></div>
   </div>
 </div>
+<div id="panel-search" class="panel"><div id="searchContent"></div></div>
 </div>
 <script>
 const D_ORIG=%%DATA%%;
@@ -447,6 +449,7 @@ const ICONS={
   target:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><path d="M8 5V2M8 14v-3M5 8H2M14 8h-3"/></svg>'
 };
 const ACTIONS=%%ACTIONS%%;
+const GOOGLE_DATA=%%GOOGLE_DATA%%;
 let currentBrand='%%DEFAULT_BRAND%%',activeModel='all',promptFilter='all',intentFilter='all',actFilter='all',searchQuery='';
 let sortCol='visibility',sortDir='desc';
 let currentTimeRange='all';
@@ -757,7 +760,7 @@ function _buildIntentFilteredComps(bk){
   return Object.values(compMap).sort(function(a,b){return b.mentions-a.mentions;});
 }
 function switchTab(t,btn){document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('panel-'+t).classList.add('active');}
-function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();}
+function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();renderSearchTraffic();}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function safeUrl(u){try{var p=new URL(u);return(p.protocol==='https:'||p.protocol==='http:')?u:'#';}catch(e){return '#';}}
 function fav(d,sz){return 'https://www.google.com/s2/favicons?domain='+d+'&sz='+(sz||32);}
@@ -1627,6 +1630,37 @@ function renderActionsGrid(){
   }).join('');
 }
 function toggleAct(id){var card=document.getElementById(id);var wasCollapsed=card.classList.contains('collapsed');document.querySelectorAll('.act-card').forEach(function(c){c.classList.add('collapsed');});if(wasCollapsed)card.classList.remove('collapsed');}
+function renderSearchTraffic(){
+  var el=document.getElementById('searchContent');
+  if(!GOOGLE_DATA||!GOOGLE_DATA.available){
+    el.innerHTML='<div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128269;</div><h3>Google Analytics &amp; Search Console not connected</h3><p>Add the GOOGLE_SERVICE_ACCOUNT_JSON secret plus ga4_property_id and gsc_site_url in config.json to enable this section.</p></div></div></div>';
+    return;
+  }
+  var ga4=GOOGLE_DATA.ga4,gsc=GOOGLE_DATA.gsc,days=GOOGLE_DATA.days||30;
+  var aiChannel=ga4.channels.find(function(c){return /ai assistant/i.test(c.channel);});
+  function infoTip(tip){return '<span class="info-tip" data-tip="'+tip+'" style="margin-right:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span>';}
+  var stats=
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Total GA4 sessions and users over the trailing window')+'Sessions ('+days+'d)</div><div class="sc-val">'+ga4.totals.sessions.toLocaleString()+'</div><div class="sc-sub">'+ga4.totals.users.toLocaleString()+' users</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Share of sessions GA4 considers engaged, and total conversion events')+'Engagement Rate</div><div class="sc-val">'+ga4.totals.engagementRate+'%</div><div class="sc-sub">'+ga4.totals.conversions.toLocaleString()+' conversions</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Sessions GA4 attributes to the AI Assistant channel group (ChatGPT, Perplexity, etc. referrals)')+'AI Assistant Sessions</div><div class="sc-val '+(aiChannel&&aiChannel.sessions>0?'good':'warn')+'">'+(aiChannel?aiChannel.sessions.toLocaleString():'0')+'</div><div class="sc-sub">traffic GA4 attributes directly to AI assistants</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Total Search Console clicks and impressions over the trailing window')+'GSC Clicks</div><div class="sc-val">'+gsc.totals.clicks.toLocaleString()+'</div><div class="sc-sub">'+gsc.totals.impressions.toLocaleString()+' impressions</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Average click-through rate and average ranking position across all queries')+'Avg CTR</div><div class="sc-val">'+gsc.totals.ctr+'%</div><div class="sc-sub">avg position '+gsc.totals.position+'</div></div>';
+  var chanRows=ga4.channels.map(function(c){
+    var isAi=/ai assistant/i.test(c.channel);
+    return '<tr'+(isAi?' style="background:var(--surface)"':'')+'><td>'+c.channel+(isAi?' <span class="sc-val good" style="font-size:10px;padding:1px 6px;border-radius:4px;background:#22c55e1a;margin-left:4px">AI</span>':'')+'</td><td style="text-align:right">'+c.sessions.toLocaleString()+'</td><td style="text-align:right">'+c.users.toLocaleString()+'</td></tr>';
+  }).join('');
+  var qRows=gsc.topQueries.map(function(q,i){
+    return '<tr><td>'+(i+1)+'</td><td>'+q.query+'</td><td style="text-align:right">'+q.clicks.toLocaleString()+'</td><td style="text-align:right">'+q.impressions.toLocaleString()+'</td><td style="text-align:right">'+q.ctr+'%</td><td style="text-align:right">'+q.position+'</td></tr>';
+  }).join('');
+  el.innerHTML=
+    '<div class="stat-strip" style="margin-bottom:14px"><div class="stat-row">'+stats+'</div></div>'+
+    '<div class="two-col">'+
+      '<div class="cc"><div class="cc-head"><div><div class="cc-title">Traffic by Channel</div><div class="cc-sub">GA4 &middot; last '+days+' days</div></div></div>'+
+        '<div class="cc-body np"><table class="dom-table"><thead><tr><th>Channel</th><th style="text-align:right">Sessions</th><th style="text-align:right">Users</th></tr></thead><tbody>'+chanRows+'</tbody></table></div></div>'+
+      '<div class="cc"><div class="cc-head"><div><div class="cc-title">Top Search Queries</div><div class="cc-sub">Search Console &middot; last '+days+' days</div></div></div>'+
+        '<div class="cc-body np"><table class="dom-table"><thead><tr><th>#</th><th>Query</th><th style="text-align:right">Clicks</th><th style="text-align:right">Impr.</th><th style="text-align:right">CTR</th><th style="text-align:right">Pos.</th></tr></thead><tbody>'+qRows+'</tbody></table></div></div>'+
+    '</div>';
+}
 _applyTimeRange();
 renderAll();
 </script>

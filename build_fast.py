@@ -1217,7 +1217,7 @@ def js_obj_literal(py_obj):
 
 
 def inject_template(template_path, output_path, brands, D, DURL, DCAT, comp_domains,
-                    BRAND_CFG, ACTIONS, RAW_HISTORY, report_title=None):
+                    BRAND_CFG, ACTIONS, RAW_HISTORY, report_title=None, google_data=None):
     with open(template_path, encoding="utf-8") as f:
         html = f.read()
 
@@ -1236,6 +1236,7 @@ def inject_template(template_path, output_path, brands, D, DURL, DCAT, comp_doma
         "%%ACTIONS%%": js_obj_literal(ACTIONS),
         "%%DEFAULT_BRAND%%": brands[0]["key"],
         "%%RAW_HISTORY%%": js_obj_literal(RAW_HISTORY),
+        "%%GOOGLE_DATA%%": js_obj_literal(google_data or {"available": False}),
     }
 
     for placeholder, value in replacements.items():
@@ -1319,6 +1320,14 @@ def main():
         ACTIONS[brand_key] = generate_actions(cfg, brand_name, brand_domain, brand_data)
         RAW_HISTORY[brand_key] = brand_data["raw_history"]
 
+    print("\nFetching Google Analytics / Search Console data...")
+    import fetch_google_data
+    google_data = fetch_google_data.fetch_google_data(cfg)
+    if google_data.get("available"):
+        print("  Google data: OK")
+    else:
+        print("  Google data: not configured or unavailable, skipping that section")
+
     print(f"\nWriting report to {output_file}...")
     inject_template(
         template_path,
@@ -1332,6 +1341,7 @@ def main():
         ACTIONS,
         RAW_HISTORY,
         report_title=cfg.get("report_title"),
+        google_data=google_data,
     )
     print(f"Done! Open {output_file} in your browser.")
 

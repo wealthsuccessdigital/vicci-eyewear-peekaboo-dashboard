@@ -1,2 +1,5 @@
 requests
 openai
+google-analytics-data
+google-api-python-client
+google-auth
