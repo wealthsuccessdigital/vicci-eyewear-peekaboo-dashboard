@@ -35,6 +35,7 @@ jobs:
         env:
           AIPEEKABOO_API_KEY: ${{ secrets.AIPEEKABOO_API_KEY }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTPUT_FILE: index.html
         run: python build_fast.py --config config.json
 
