@@ -358,6 +358,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
     <button class="stab" onclick="switchTab('citations',this)">Citations</button>
     <button class="stab" onclick="switchTab('actions',this)">Actions</button>
     <button class="stab" onclick="switchTab('search',this)">Search &amp; Traffic</button>
+    <button class="stab" onclick="switchTab('trends',this)">Trends</button>
   </div>
 </nav>
 <div class="wrap">
@@ -429,6 +430,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
   </div>
 </div>
 <div id="panel-search" class="panel"><div id="searchContent"></div></div>
+<div id="panel-trends" class="panel"><div id="trendsContent"></div></div>
 </div>
 <script>
 const D_ORIG=%%DATA%%;
@@ -763,7 +765,7 @@ function _buildIntentFilteredComps(bk){
   return Object.values(compMap).sort(function(a,b){return b.mentions-a.mentions;});
 }
 function switchTab(t,btn){document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('panel-'+t).classList.add('active');}
-function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();renderSearchTraffic();}
+function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();renderSearchTraffic();renderTrends();}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function safeUrl(u){try{var p=new URL(u);return(p.protocol==='https:'||p.protocol==='http:')?u:'#';}catch(e){return '#';}}
 function fav(d,sz){return 'https://www.google.com/s2/favicons?domain='+d+'&sz='+(sz||32);}
@@ -1663,6 +1665,92 @@ function renderSearchTraffic(){
       '<div class="cc"><div class="cc-head"><div><div class="cc-title">Top Search Queries</div><div class="cc-sub">Search Console &middot; last '+days+' days</div></div></div>'+
         '<div class="cc-body np"><table class="dom-table"><thead><tr><th>#</th><th>Query</th><th style="text-align:right">Clicks</th><th style="text-align:right">Impr.</th><th style="text-align:right">CTR</th><th style="text-align:right">Pos.</th></tr></thead><tbody>'+qRows+'</tbody></table></div></div>'+
     '</div>';
+}
+function deltaBadge(label,val){
+  if(val===null||val===undefined)return '<span style="display:inline-flex;align-items:center;font-size:11px;color:var(--ink4);padding:4px 10px">'+label+': n/a</span>';
+  var up=val>=0;
+  return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;background:'+(up?'#22c55e1a':'#ef44441a')+';color:'+(up?'#16a34a':'#dc2626')+'">'+(up?'&#9650;':'&#9660;')+' '+Math.abs(val)+'% '+label+'</span>';
+}
+function _weekStart(dateStr){
+  var d=new Date(dateStr+'T00:00:00Z');
+  var day=d.getUTCDay();
+  var diffToMonday=(day===0?-6:1-day);
+  d.setUTCDate(d.getUTCDate()+diffToMonday);
+  return d.toISOString().slice(0,10);
+}
+function _computePeekabooWeekly(){
+  // PeekABoo's prompt-detail API caps each prompt at 100 most recent runs;
+  // at 5 AI models/day that's a hard ~20-day ceiling regardless of the
+  // 90d time_range requested, so weekly (not monthly) buckets are what
+  // the available data actually supports.
+  var rh=RAW_HISTORY[currentBrand];
+  if(!rh||!rh.prompts)return [];
+  var buckets={};
+  rh.prompts.forEach(function(p){
+    (p.entries||[]).forEach(function(e){
+      if(!e.date)return;
+      var wk=_weekStart(e.date);
+      if(!buckets[wk])buckets[wk]={total:0,hit:0};
+      buckets[wk].total++;
+      if(e.hit)buckets[wk].hit++;
+    });
+  });
+  return Object.keys(buckets).sort().map(function(wk){
+    var b=buckets[wk];
+    return {week:wk,visibility:b.total?(b.hit/b.total*100):0,total:b.total,hit:b.hit};
+  });
+}
+function _peekabooDeltas(weekly){
+  var curWk=_weekStart(new Date().toISOString().slice(0,10));
+  var complete=weekly.filter(function(w){return w.week!==curWk;});
+  if(complete.length<2)return {current:complete.length?complete[complete.length-1].visibility:null,wow:null};
+  var last=complete[complete.length-1],prev=complete[complete.length-2];
+  var wow=prev.visibility?Math.round((last.visibility-prev.visibility)/prev.visibility*1000)/10:null;
+  return {current:last.visibility,wow:wow};
+}
+var _trendCharts={};
+function _destroyTrendCharts(){Object.values(_trendCharts).forEach(function(c){try{c.destroy();}catch(e){}});_trendCharts={};}
+function renderTrends(){
+  _destroyTrendCharts();
+  var el=document.getElementById('trendsContent');
+  var pkWeekly=_computePeekabooWeekly();
+  var pkDeltas=_peekabooDeltas(pkWeekly);
+  var hasGoogle=GOOGLE_DATA&&GOOGLE_DATA.available;
+
+  var html='<div class="cc"><div class="cc-head"><div><div class="cc-title">AI Visibility Over Time</div><div class="cc-sub">PeekABoo &middot; weekly (see note below)</div></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('WoW',pkDeltas.wow)+'</div></div>'+
+    '<div class="cc-body" style="height:260px;padding:16px"><canvas id="trend-vis"></canvas></div>'+
+    '<div style="padding:0 16px 16px;font-size:12px;color:var(--ink4)">PeekABoo\'s API caps each prompt at its 100 most recent runs. At 5 AI models tracked daily, that\'s roughly 3 weeks of history no matter how long this brand has been tracked overall, so this chart uses weekly buckets and week-over-week change rather than monthly/YoY, which the API can\'t support here.</div></div>';
+
+  if(hasGoogle){
+    var ga4=GOOGLE_DATA.ga4,gsc=GOOGLE_DATA.gsc;
+    html+='<div class="cc"><div class="cc-head"><div><div class="cc-title">Sessions Over Time</div><div class="cc-sub">GA4 &middot; monthly, including AI Assistant referral sessions</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('Sessions MoM',ga4.deltas.sessions.mom)+deltaBadge('Sessions YoY',ga4.deltas.sessions.yoy)+'</div></div>'+
+      '<div class="cc-body" style="height:260px;padding:16px"><canvas id="trend-ga4"></canvas></div></div>';
+    html+='<div class="cc"><div class="cc-head"><div><div class="cc-title">Search Performance Over Time</div><div class="cc-sub">Search Console &middot; monthly clicks and impressions</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('Clicks MoM',gsc.deltas.clicks.mom)+deltaBadge('Clicks YoY',gsc.deltas.clicks.yoy)+'</div></div>'+
+      '<div class="cc-body" style="height:260px;padding:16px"><canvas id="trend-gsc"></canvas></div></div>';
+  } else {
+    html+='<div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128200;</div><h3>Connect Google Analytics &amp; Search Console for more trend data</h3><p>See the Search &amp; Traffic tab for setup details.</p></div></div></div>';
+  }
+
+  el.innerHTML=html;
+
+  _trendCharts.vis=new Chart(document.getElementById('trend-vis'),{type:'line',data:{labels:pkWeekly.map(function(w){return w.week;}),datasets:[{label:'AI Visibility %',data:pkWeekly.map(function(w){return +w.visibility.toFixed(1);}),borderColor:'#4f46e5',backgroundColor:'#4f46e51a',fill:true,tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'%';}}}}}});
+
+  if(hasGoogle){
+    var ga4m=GOOGLE_DATA.ga4.monthly;
+    _trendCharts.ga4=new Chart(document.getElementById('trend-ga4'),{type:'line',data:{labels:ga4m.map(function(m){return m.month;}),datasets:[
+      {label:'Sessions',data:ga4m.map(function(m){return m.sessions;}),borderColor:'#4f46e5',backgroundColor:'#4f46e51a',fill:true,tension:.3,yAxisID:'y'},
+      {label:'AI Assistant Sessions',data:ga4m.map(function(m){return m.aiAssistantSessions;}),borderColor:'#22c55e',backgroundColor:'#22c55e1a',fill:true,tension:.3,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{y:{beginAtZero:true,position:'left'},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});
+
+    var gscm=GOOGLE_DATA.gsc.monthly;
+    _trendCharts.gsc=new Chart(document.getElementById('trend-gsc'),{type:'line',data:{labels:gscm.map(function(m){return m.month;}),datasets:[
+      {label:'Clicks',data:gscm.map(function(m){return m.clicks;}),borderColor:'#4f46e5',backgroundColor:'#4f46e51a',fill:true,tension:.3,yAxisID:'y'},
+      {label:'Impressions',data:gscm.map(function(m){return m.impressions;}),borderColor:'#f59e0b',backgroundColor:'#f59e0b1a',fill:true,tension:.3,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{y:{beginAtZero:true,position:'left'},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});
+  }
 }
 _applyTimeRange();
 renderAll();
