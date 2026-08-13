@@ -385,6 +385,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
         <th class="pt-sort" onclick="setSortCol('visibility')" id="th-visibility">Visibility<span class="sort-arr sorted" id="sa-visibility">&#8595;</span></th>
         <th class="pt-sort" onclick="setSortCol('position')" id="th-position">Avg Position<span class="sort-arr" id="sa-position">&#8597;</span></th>
         <th class="pt-sort" onclick="setSortCol('sentiment')" id="th-sentiment">Sentiment<span class="info-tip" data-tip="Average sentiment of AI responses that mention the brand for this prompt. Positive = spoken about favorably." onclick="event.stopPropagation()" style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span><span class="sort-arr" id="sa-sentiment">&#8597;</span></th>
+        <th>Trend<span class="info-tip" data-tip="Week-over-week change in this prompt's average score, computed from the last two complete weeks of tracked history." style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span></th>
         <th>Models</th>
         <th class="pt-sort" onclick="setSortCol('competitors')" id="th-competitors">Top Competitors<span class="info-tip" data-tip="Brands mentioned most often alongside this brand in AI responses for this prompt." onclick="event.stopPropagation()" style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span><span class="sort-arr" id="sa-competitors">&#8597;</span></th>
         <th>Top Citations<span class="info-tip" data-tip="Domains most frequently cited by AI models when answering this prompt." style="margin-left:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span></th>
@@ -505,7 +506,7 @@ function setSentFilter(f,btn){sentimentFilter=f;document.querySelectorAll('#sent
 function _daysBack(dateStr,days){var d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()-days);return d.toISOString().split('T')[0];}
 function _extractDomainJS(url){try{var parsed=new URL(url);var h=parsed.hostname.toLowerCase();return h.startsWith('www.')?h.slice(4):h;}catch(e){return url;}}
 function _normComp(name){var n=name.trim().toLowerCase();n=n.replace(/\.(ai|com|io|co|org|net|app)$/,'');n=n.replace(/\s+ai$/,'');n=n.replace(/ai$/,'');n=n.replace(/\s+(digital|agency|media|platform|labs?|technologies?|solutions?)$/,'');return n.replace(/[\s\-]/g,'');}
-function _dedupeComps(comps){var groups={};comps.forEach(function(c){var norm=_normComp(c.name);if(!groups[norm]){groups[norm]={canonical:c.name,canonicalMentions:c.mentions,mentions:0,avgScore:0,topSentiment:c.topSentiment,models:[],modelMentions:{}};}var g=groups[norm];g.mentions+=c.mentions;if(c.mentions>g.canonicalMentions){g.canonical=c.name;g.canonicalMentions=c.mentions;}(c.models||[]).forEach(function(m){if(g.models.indexOf(m)===-1)g.models.push(m);});if(c.modelMentions){Object.keys(c.modelMentions).forEach(function(mk){g.modelMentions[mk]=(g.modelMentions[mk]||0)+c.modelMentions[mk];});}});return Object.values(groups).map(function(g){return {name:g.canonical,mentions:g.mentions,avgScore:0,topSentiment:g.topSentiment,models:g.models,modelMentions:g.modelMentions};}).sort(function(a,b){return b.mentions-a.mentions;});}
+function _dedupeComps(comps){var groups={};comps.forEach(function(c){var norm=_normComp(c.name);if(!groups[norm]){groups[norm]={canonical:c.name,canonicalMentions:c.mentions,mentions:0,avgScore:0,topSentiment:c.topSentiment,models:[],modelMentions:{},change:c.change};}var g=groups[norm];g.mentions+=c.mentions;if(c.mentions>g.canonicalMentions){g.canonical=c.name;g.canonicalMentions=c.mentions;g.change=c.change;}(c.models||[]).forEach(function(m){if(g.models.indexOf(m)===-1)g.models.push(m);});if(c.modelMentions){Object.keys(c.modelMentions).forEach(function(mk){g.modelMentions[mk]=(g.modelMentions[mk]||0)+c.modelMentions[mk];});}});return Object.values(groups).map(function(g){return {name:g.canonical,mentions:g.mentions,avgScore:0,topSentiment:g.topSentiment,models:g.models,modelMentions:g.modelMentions,change:g.change};}).sort(function(a,b){return b.mentions-a.mentions;});}
 
 function _computeFilteredData(brandKey){
   var rh=RAW_HISTORY[brandKey];
@@ -941,6 +942,11 @@ function renderOverview(){
 function renderStats(){
   var bk=BRAND_CFG[currentBrand].key,totalRuns=0,mentioned=0;
   var pd=_filterPdByIntent(D.prompts[bk]);
+  var _wkStats=_computeWeeklyStats();
+  var visWow=_weeklyDelta(_wkStats,'visibility').wow;
+  var sentWow=_weeklyDelta(_wkStats,'sentimentPct').wow;
+  var posWow=_weeklyDelta(_wkStats,'avgPosition').wow;
+  var citWow=_weeklyDelta(_wkStats,'citations').wow;
   pd.forEach(function(p){
     if(activeModel==='all'){totalRuns+=p.totalRuns;mentioned+=p.mentions;}
     else{var mr=p.models[activeModel];if(mr){totalRuns++;if(mr.mentioned)mentioned++;}}
@@ -991,12 +997,12 @@ function renderStats(){
   var infoSvg='<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg>';
   var bestScoreTip='Highest AI visibility score (0-100) achieved'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:' across all prompts and models')+'. Score reflects prominence and rank in the AI response';
   document.getElementById('statRow').innerHTML=
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Percentage of total AI model runs where the brand was mentioned (total mentions / total runs across all prompts and models)">'+infoSvg+'</span>AI Visibility</div><div class="sc-val '+visCls+'">'+visPct+'%</div><div class="sc-sub">'+mentioned+' of '+totalRuns+' model runs include a mention</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Percentage of total AI model runs where the brand was mentioned (total mentions / total runs across all prompts and models)">'+infoSvg+'</span>AI Visibility</div><div class="sc-val '+visCls+'">'+visPct+'%</div><div class="sc-sub">'+mentioned+' of '+totalRuns+' model runs include a mention</div><div style="margin-top:4px">'+deltaSmall(visWow)+'</div></div>'+
     '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of individual AI model query executions across all prompts">'+infoSvg+'</span>Model Runs</div><div class="sc-val">'+totalRuns+'</div><div class="sc-sub">'+promptsMentioned+' of '+pd.length+' prompts trigger a mention</div></div>'+
     '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="'+bestScoreTip+'">'+infoSvg+'</span>Best Score</div><div class="sc-val '+(bestScore>0?'good':'bad')+'">'+(bestScore>0?bestScore:'None')+'</div><div class="sc-sub">'+(bestScore===100?'Rank 1 by '+(bestScoreModel||'AI'):bestScore>0?'highest ranking'+(bestScoreModel?' by '+bestScoreModel:''):'not ranked by any model')+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of source URLs cited by AI models when answering prompts in this brand\'s topic area">'+infoSvg+'</span>Total Citations</div><div class="sc-val" style="color:var(--v)">'+citTotal.toLocaleString()+'</div><div class="sc-sub">'+c.uniqueDomains+' unique domains</div></div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Share of brand mentions rated as positive sentiment out of all detected mentions">'+infoSvg+'</span>Sentiment Score</div><div class="sc-val '+(sentPct===null?'bad':sentCls)+'">'+(sentPct!==null?sentPct+'%':'N/A')+'</div><div class="sc-sub">'+(sentTotal>0?sentPos+' positive of '+sentTotal+' mentions':'no mentions detected')+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Mean rank position across all AI responses where the brand was mentioned. Lower is better (rank 1 = first recommended)">'+infoSvg+'</span>Avg Position</div><div class="sc-val '+(avgPos===null?'bad':posCls)+'">'+(avgPos!==null?'#'+avgPos:'N/A')+'</div><div class="sc-sub">'+(allRanks.length?'across '+allRanks.length+' ranked responses':'no ranked mentions')+'</div></div>';
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of source URLs cited by AI models when answering prompts in this brand\'s topic area">'+infoSvg+'</span>Total Citations</div><div class="sc-val" style="color:var(--v)">'+citTotal.toLocaleString()+'</div><div class="sc-sub">'+c.uniqueDomains+' unique domains</div><div style="margin-top:4px">'+deltaSmall(citWow)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Share of brand mentions rated as positive sentiment out of all detected mentions">'+infoSvg+'</span>Sentiment Score</div><div class="sc-val '+(sentPct===null?'bad':sentCls)+'">'+(sentPct!==null?sentPct+'%':'N/A')+'</div><div class="sc-sub">'+(sentTotal>0?sentPos+' positive of '+sentTotal+' mentions':'no mentions detected')+'</div><div style="margin-top:4px">'+deltaSmall(sentWow)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Mean rank position across all AI responses where the brand was mentioned. Lower is better (rank 1 = first recommended)">'+infoSvg+'</span>Avg Position</div><div class="sc-val '+(avgPos===null?'bad':posCls)+'">'+(avgPos!==null?'#'+avgPos:'N/A')+'</div><div class="sc-sub">'+(allRanks.length?'across '+allRanks.length+' ranked responses':'no ranked mentions')+'</div><div style="margin-top:4px">'+deltaSmall(posWow,'WoW',true)+'</div></div>';
 }
 /* sort helpers */
 function setSortCol(col){
@@ -1182,8 +1188,32 @@ function buildPromptExpandContent(pid){
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function _intentBadge(it){if(!it)return '<span style="color:var(--ink4);font-size:11px">-</span>';var k=String(it).toUpperCase();var m={COMMERCIAL:['Commercial','#7c3aed'],TRANSACTIONAL:['Transactional','#16a34a'],INVESTIGATIONAL:['Investigational','#2563eb'],INFORMATIONAL:['Informational','#0891b2'],NAVIGATIONAL:['Navigational','#64748b'],BRANDED:['Branded','#d97706'],SENTIMENT:['Sentiment','#db2777']};var v=m[k]||[k.charAt(0)+k.slice(1).toLowerCase(),'#64748b'];return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:'+v[1]+';background:'+v[1]+'1a;white-space:nowrap">'+v[0]+'</span>';}
+function _computePromptTrends(){
+  var rh=RAW_HISTORY[currentBrand];
+  if(!rh||!rh.prompts)return {};
+  var curWk=_weekStart(new Date().toISOString().slice(0,10));
+  var map={};
+  rh.prompts.forEach(function(p){
+    var buckets={};
+    (p.entries||[]).forEach(function(e){
+      if(!e.date)return;
+      var wk=_weekStart(e.date);
+      if(!buckets[wk])buckets[wk]={scoreSum:0,scoreCount:0};
+      if(e.hit&&e.sc){buckets[wk].scoreSum+=e.sc;buckets[wk].scoreCount++;}
+    });
+    var weeks=Object.keys(buckets).sort().filter(function(w){return w!==curWk;});
+    if(weeks.length<2){map[p.id]=null;return;}
+    var lastB=buckets[weeks[weeks.length-1]],prevB=buckets[weeks[weeks.length-2]];
+    var lastAvg=lastB.scoreCount?lastB.scoreSum/lastB.scoreCount:0;
+    var prevAvg=prevB.scoreCount?prevB.scoreSum/prevB.scoreCount:0;
+    map[p.id]=prevAvg?Math.round((lastAvg-prevAvg)/prevAvg*1000)/10:null;
+  });
+  return map;
+}
+var _promptTrendMap={};
 function renderPrompts(){
   var bk=BRAND_CFG[currentBrand].key;_pd=D.prompts[bk];_buildPromptComps(currentBrand);_buildPromptCitations(currentBrand);
+  _promptTrendMap=_computePromptTrends();
   document.getElementById('promptsSub').textContent=_pd.length+' prompts tracked · '+(activeModel==='all'?'all models':(MODEL_META[activeModel]||{label:activeModel}).label);
   searchQuery=document.getElementById('promptSearch').value;applyPromptFilter();
 }
@@ -1203,7 +1233,7 @@ function applyPromptFilter(){
   if(intentFilter!=='all')data=data.filter(function(p){return String(p.intent||'').toUpperCase()===intentFilter;});
   data=sortPrompts(data);
   var tbody=document.getElementById('promptsTbody');
-  if(!data.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--ink4)">No prompts match filter</td></tr>';return;}
+  if(!data.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--ink4)">No prompts match filter</td></tr>';return;}
   tbody.innerHTML=data.map(function(p){
     /* visibility */
     var visBadge,mentionedModels;
@@ -1282,6 +1312,8 @@ function applyPromptFilter(){
       return '<div class="comp-iw"><img src="'+fav(pc.domain)+'" onerror="this.style.display=\'none\'"><div class="comp-itip">'+tip+'</div></div>';
     }).join('');
     if(!citIcons)citIcons='<span style="color:var(--ink4);font-size:11px">-</span>';
+    var pTrend=_promptTrendMap[p.id];
+    var trendCell=(pTrend===null||pTrend===undefined)?'<span style="color:var(--ink4);font-size:11px">-</span>':deltaSmall(pTrend,'WoW');
     var pid=p.id||'';
     return '<tr>'+
       '<td style="width:28px;text-align:center;padding:0">'+
@@ -1289,13 +1321,13 @@ function applyPromptFilter(){
       '</td>'+
       '<td><div class="pt-text">'+esc(p.text)+'</div></td>'+
       '<td>'+_intentBadge(p.intent)+'</td>'+
-      '<td>'+visBadge+'</td><td>'+posBadge+'</td><td>'+sentBadge+'</td>'+
+      '<td>'+visBadge+'</td><td>'+posBadge+'</td><td>'+sentBadge+'</td><td>'+trendCell+'</td>'+
       '<td><div class="model-dots">'+dots+'</div></td>'+
       '<td><div class="comp-icons">'+compIcons+'</div></td>'+
       '<td><div class="comp-icons">'+citIcons+'</div></td>'+
     '</tr>'+
     '<tr id="exp-'+pid+'" style="display:none">'+
-      '<td colspan="9" style="padding:0 12px 0 36px;background:var(--surface)">'+
+      '<td colspan="10" style="padding:0 12px 0 36px;background:var(--surface)">'+
         '<div id="expContent-'+pid+'"></div>'+
       '</td>'+
     '</tr>';
@@ -1326,6 +1358,8 @@ function renderSentiment(){
   }
   if(sentimentFilter!=='all')mentions=mentions.filter(function(m){return m.sentiment===sentimentFilter;});
   var tiles=[{cls:'spos',num:tileCounts.positive,lbl:'Positive'},{cls:'sneu',num:tileCounts.neutral,lbl:'Neutral'},{cls:'sneg',num:tileCounts.negative,lbl:'Negative'},{cls:'sunc',num:tileCounts.uncertain,lbl:'Uncertain'}].map(function(t){return '<div class="sent-tile '+t.cls+'"><div class="st-num">'+t.num+'</div><div class="st-lbl">'+t.lbl+'</div></div>';}).join('');
+  var _sentWow=_weeklyDelta(_computeWeeklyStats(),'sentimentPct').wow;
+  var wowRow='<div style="padding:8px 0 4px;display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--ink4)">Positive sentiment share</span>'+deltaSmall(_sentWow)+'</div>';
   var el=document.getElementById('sentContent');
   if(s.total_mentions===0){el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128202;</div><h3>No mentions detected</h3><p>'+BRAND_CFG[currentBrand].name+' was not mentioned in any of the 30 tracked prompts across 5 AI models. See the Actions tab for steps to achieve first mentions.</p></div></div></div>';return;}
   if(!mentions.length){var noDataMsg=sentimentFilter!=='all'?'No '+sentimentFilter+' mentions for this filter. Try a different sentiment or switch to All.':(activeModel==='all'?'No mentions detected for current filter.':'No mentions for '+(MODEL_META[activeModel]||{label:activeModel}).label+'. Switch to "All models" or try Sonar.');el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128269;</div><h3>No matching mentions</h3><p>'+noDataMsg+'</p></div></div></div>';return;}
@@ -1335,7 +1369,7 @@ function renderSentiment(){
     var compsSection=comps?'<div class="smc-comps-wrap"><div class="smc-comps-label">Other tools recommended in this response</div><div class="smc-comps">'+comps+'</div></div>':'';
     return '<div class="sm-card"><div class="smc-head"><div class="smc-prompt">"'+esc(mn.prompt)+'"</div><div class="model-chip"><img src="'+fav(mm.domain,32)+'">'+mm.label+'</div></div><div class="smc-meta"><span>Rank: <b>#'+mn.rank+'</b></span><span>Score: <b>'+mn.score+'</b></span><span class="sent-chip chip-'+mn.sentiment+'">'+mn.sentiment.charAt(0).toUpperCase()+mn.sentiment.slice(1)+'</span></div><div class="smc-context">'+esc(mn.context)+'</div><div class="smc-reason">'+esc(mn.reason)+'</div>'+compsSection+'</div>';
   }).join('');
-  el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-head"><div><div class="cc-title">Confirmed Mentions</div><div class="cc-sub">'+mentions.length+' mention'+(mentions.length!==1?'s':'')+', verified against full AI responses</div></div></div><div class="cc-body">'+cards+'</div></div>';
+  el.innerHTML='<div class="sent-tiles">'+tiles+'</div>'+wowRow+'<div class="cc"><div class="cc-head"><div><div class="cc-title">Confirmed Mentions</div><div class="cc-sub">'+mentions.length+' mention'+(mentions.length!==1?'s':'')+', verified against full AI responses</div></div></div><div class="cc-body">'+cards+'</div></div>';
 }
 /* competitors */
 function renderCompetitors(){
@@ -1353,12 +1387,15 @@ function renderCompetitors(){
   var _brandDomComp=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
   var _brandCompName=BRAND_CFG[currentBrand].name;
   var _brandCompRow='<div class="comp-row" style="background:rgba(79,70,229,.06);border-bottom:1.5px dashed rgba(79,70,229,.25)"><div class="comp-rank" style="color:#4f46e5;font-size:9px;font-weight:800;letter-spacing:.05em;width:20px">YOU</div><img class="comp-fav" src="'+fav(_brandDomComp)+'" onerror="this.style.display=\'none\'"><div class="comp-name" style="color:#4f46e5;font-weight:700">'+esc(_brandCompName)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+_brandPctComp+'%;background:rgba(79,70,229,.85)"></div></div><div class="comp-count" style="color:#4f46e5;font-weight:600">'+_brandMentionsComp+' mentions</div><div class="sdot sdot-pos" title="positive"></div></div>';
+  function _parseChangeStr(s){if(!s)return null;var m=String(s).match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):null;}
   document.getElementById('compList').innerHTML=_brandCompRow+comps.slice(0,15).map(function(c,i){
     var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');
     var dispVal=_dc(c);
     var pct=(dispVal/max*100).toFixed(0);
     var sdotCls=c.topSentiment==='positive'?'sdot-pos':c.topSentiment==='negative'?'sdot-neg':'sdot-neu';
-    return '<div class="comp-row"><div class="comp-rank">'+(i+1)+'</div><img class="comp-fav" src="'+fav(cd)+'" onerror="this.style.display=\'none\'"><div class="comp-name">'+esc(c.name)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+pct+'%"></div></div><div class="comp-count">'+dispVal+' mentions</div><div class="sdot '+sdotCls+'" title="'+c.topSentiment+'"></div></div>';
+    var chgVal=_parseChangeStr(c.change);
+    var chgHtml=chgVal===null?'':'<span title="Visibility score change since PeekABoo\'s previous snapshot" style="margin-left:6px">'+deltaSmall(chgVal,'')+'</span>';
+    return '<div class="comp-row"><div class="comp-rank">'+(i+1)+'</div><img class="comp-fav" src="'+fav(cd)+'" onerror="this.style.display=\'none\'"><div class="comp-name">'+esc(c.name)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+pct+'%"></div></div><div class="comp-count">'+dispVal+' mentions'+chgHtml+'</div><div class="sdot '+sdotCls+'" title="'+c.topSentiment+'"></div></div>';
   }).join('')||'<p style="color:var(--ink4);font-size:13px">No competitors for this filter.</p>';
   document.getElementById('compSub').textContent=comps.length+' competitors detected'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:'');
   var top3=comps.slice(0,3);
@@ -1645,10 +1682,10 @@ function renderSearchTraffic(){
   var aiChannel=ga4.channels.find(function(c){return /ai assistant/i.test(c.channel);});
   function infoTip(tip){return '<span class="info-tip" data-tip="'+tip+'" style="margin-right:4px"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg></span>';}
   var stats=
-    '<div class="stat-card"><div class="sc-label">'+infoTip('Total GA4 sessions and users over the trailing window')+'Sessions ('+days+'d)</div><div class="sc-val">'+ga4.totals.sessions.toLocaleString()+'</div><div class="sc-sub">'+ga4.totals.users.toLocaleString()+' users</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Total GA4 sessions and users over the trailing window')+'Sessions ('+days+'d)</div><div class="sc-val">'+ga4.totals.sessions.toLocaleString()+'</div><div class="sc-sub">'+ga4.totals.users.toLocaleString()+' users</div><div style="margin-top:4px;display:flex;gap:8px">'+deltaSmall(ga4.deltas.sessions.mom,'MoM')+deltaSmall(ga4.deltas.sessions.yoy,'YoY')+'</div></div>'+
     '<div class="stat-card"><div class="sc-label">'+infoTip('Share of sessions GA4 considers engaged, and total conversion events')+'Engagement Rate</div><div class="sc-val">'+ga4.totals.engagementRate+'%</div><div class="sc-sub">'+ga4.totals.conversions.toLocaleString()+' conversions</div></div>'+
-    '<div class="stat-card"><div class="sc-label">'+infoTip('Sessions GA4 attributes to the AI Assistant channel group (ChatGPT, Perplexity, etc. referrals)')+'AI Assistant Sessions</div><div class="sc-val '+(aiChannel&&aiChannel.sessions>0?'good':'warn')+'">'+(aiChannel?aiChannel.sessions.toLocaleString():'0')+'</div><div class="sc-sub">traffic GA4 attributes directly to AI assistants</div></div>'+
-    '<div class="stat-card"><div class="sc-label">'+infoTip('Total Search Console clicks and impressions over the trailing window')+'GSC Clicks</div><div class="sc-val">'+gsc.totals.clicks.toLocaleString()+'</div><div class="sc-sub">'+gsc.totals.impressions.toLocaleString()+' impressions</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Sessions GA4 attributes to the AI Assistant channel group (ChatGPT, Perplexity, etc. referrals)')+'AI Assistant Sessions</div><div class="sc-val '+(aiChannel&&aiChannel.sessions>0?'good':'warn')+'">'+(aiChannel?aiChannel.sessions.toLocaleString():'0')+'</div><div class="sc-sub">traffic GA4 attributes directly to AI assistants</div><div style="margin-top:4px;display:flex;gap:8px">'+deltaSmall(ga4.deltas.aiAssistantSessions.mom,'MoM')+deltaSmall(ga4.deltas.aiAssistantSessions.yoy,'YoY')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">'+infoTip('Total Search Console clicks and impressions over the trailing window')+'GSC Clicks</div><div class="sc-val">'+gsc.totals.clicks.toLocaleString()+'</div><div class="sc-sub">'+gsc.totals.impressions.toLocaleString()+' impressions</div><div style="margin-top:4px;display:flex;gap:8px">'+deltaSmall(gsc.deltas.clicks.mom,'MoM')+deltaSmall(gsc.deltas.clicks.yoy,'YoY')+'</div></div>'+
     '<div class="stat-card"><div class="sc-label">'+infoTip('Average click-through rate and average ranking position across all queries')+'Avg CTR</div><div class="sc-val">'+gsc.totals.ctr+'%</div><div class="sc-sub">avg position '+gsc.totals.position+'</div></div>';
   var chanRows=ga4.channels.map(function(c){
     var isAi=/ai assistant/i.test(c.channel);
@@ -1671,6 +1708,13 @@ function deltaBadge(label,val){
   var up=val>=0;
   return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;background:'+(up?'#22c55e1a':'#ef44441a')+';color:'+(up?'#16a34a':'#dc2626')+'">'+(up?'&#9650;':'&#9660;')+' '+Math.abs(val)+'% '+label+'</span>';
 }
+function deltaSmall(val,label,invert){
+  var lbl=(label===undefined)?'WoW':label;
+  if(val===null||val===undefined)return '<span style="font-size:11px;color:var(--ink4)">'+(lbl||'change')+': n/a</span>';
+  var up=val>=0;
+  var good=invert?!up:up;
+  return '<span style="font-size:11px;font-weight:600;color:'+(good?'#16a34a':'#dc2626')+'">'+(up?'&#9650;':'&#9660;')+' '+Math.abs(val)+'%'+(lbl?' '+lbl:'')+'</span>';
+}
 function _weekStart(dateStr){
   var d=new Date(dateStr+'T00:00:00Z');
   var day=d.getUTCDay();
@@ -1678,7 +1722,7 @@ function _weekStart(dateStr){
   d.setUTCDate(d.getUTCDate()+diffToMonday);
   return d.toISOString().slice(0,10);
 }
-function _computePeekabooWeekly(){
+function _computeWeeklyStats(promptFilter){
   // PeekABoo's prompt-detail API caps each prompt at 100 most recent runs;
   // at 5 AI models/day that's a hard ~20-day ceiling regardless of the
   // 90d time_range requested, so weekly (not monthly) buckets are what
@@ -1687,34 +1731,51 @@ function _computePeekabooWeekly(){
   if(!rh||!rh.prompts)return [];
   var buckets={};
   rh.prompts.forEach(function(p){
+    if(promptFilter&&!promptFilter(p))return;
     (p.entries||[]).forEach(function(e){
       if(!e.date)return;
       var wk=_weekStart(e.date);
-      if(!buckets[wk])buckets[wk]={total:0,hit:0};
-      buckets[wk].total++;
-      if(e.hit)buckets[wk].hit++;
+      if(!buckets[wk])buckets[wk]={total:0,hit:0,scoreSum:0,scoreCount:0,posSum:0,posCount:0,sentPos:0,sentTotal:0,citations:0};
+      var b=buckets[wk];
+      b.total++;
+      b.citations+=(e.srcs||[]).length;
+      if(e.hit){
+        b.hit++;
+        if(e.sc){b.scoreSum+=e.sc;b.scoreCount++;}
+        if(e.rk){b.posSum+=e.rk;b.posCount++;}
+        if(e.snt){b.sentTotal++;if(e.snt==='positive')b.sentPos++;}
+      }
     });
   });
   return Object.keys(buckets).sort().map(function(wk){
     var b=buckets[wk];
-    return {week:wk,visibility:b.total?(b.hit/b.total*100):0,total:b.total,hit:b.hit};
+    return {
+      week:wk,
+      visibility:b.total?(b.hit/b.total*100):0,
+      avgScore:b.scoreCount?(b.scoreSum/b.scoreCount):0,
+      avgPosition:b.posCount?(b.posSum/b.posCount):null,
+      sentimentPct:b.sentTotal?(b.sentPos/b.sentTotal*100):null,
+      citations:b.citations,
+      total:b.total,hit:b.hit
+    };
   });
 }
-function _peekabooDeltas(weekly){
+function _weeklyDelta(weekly,field){
   var curWk=_weekStart(new Date().toISOString().slice(0,10));
   var complete=weekly.filter(function(w){return w.week!==curWk;});
-  if(complete.length<2)return {current:complete.length?complete[complete.length-1].visibility:null,wow:null};
+  if(complete.length<2)return {current:complete.length?complete[complete.length-1][field]:null,wow:null};
   var last=complete[complete.length-1],prev=complete[complete.length-2];
-  var wow=prev.visibility?Math.round((last.visibility-prev.visibility)/prev.visibility*1000)/10:null;
-  return {current:last.visibility,wow:wow};
+  var lv=last[field],pv=prev[field];
+  var wow=(pv!==null&&pv!==undefined&&pv!==0&&lv!==null&&lv!==undefined)?Math.round((lv-pv)/pv*1000)/10:null;
+  return {current:lv,wow:wow};
 }
 var _trendCharts={};
 function _destroyTrendCharts(){Object.values(_trendCharts).forEach(function(c){try{c.destroy();}catch(e){}});_trendCharts={};}
 function renderTrends(){
   _destroyTrendCharts();
   var el=document.getElementById('trendsContent');
-  var pkWeekly=_computePeekabooWeekly();
-  var pkDeltas=_peekabooDeltas(pkWeekly);
+  var pkWeekly=_computeWeeklyStats();
+  var pkDeltas=_weeklyDelta(pkWeekly,'visibility');
   var hasGoogle=GOOGLE_DATA&&GOOGLE_DATA.available;
 
   var html='<div class="cc"><div class="cc-head"><div><div class="cc-title">AI Visibility Over Time</div><div class="cc-sub">PeekABoo &middot; weekly (see note below)</div></div>'+

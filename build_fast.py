@@ -212,6 +212,23 @@ def fetch_prompt_detail(api_key, brand_id, prompt_id):
                        params={"include_full_response": "true", "time_range": "90d"})
 
 
+def fetch_competitor_changes(api_key, brand_id):
+    """PeekABoo's own /competitors endpoint returns a pre-computed
+    period-over-period score change per competitor (e.g. "-9%"). Keyed
+    by normalized name so it can be merged onto our own competitor list."""
+    try:
+        data = api_get(api_key, f"/brands/{brand_id}/competitors")
+        result = {}
+        for c in data.get("data", {}).get("competitors", []):
+            name = c.get("name")
+            if name:
+                result[normalize_comp_name(name)] = c.get("change")
+        return result
+    except Exception as e:
+        print(f"  Warning: could not fetch competitor change data: {e}")
+        return {}
+
+
 # ─── Classification helpers ───────────────────────────────────────────────────
 
 DOMAIN_CAT_MAP = {
@@ -1024,6 +1041,7 @@ def process_brand_data(api_key, brand_cfg, llm_cfg=None):
         comp_data[name]["models"].add(model_key)
         comp_data[name]["model_counts"][model_key] += 1
 
+    competitor_changes = fetch_competitor_changes(api_key, brand_id)
     competitors_out = []
     for name, info in comp_data.items():
         sents = info["sentiments"]
@@ -1036,6 +1054,7 @@ def process_brand_data(api_key, brand_cfg, llm_cfg=None):
             "models": sorted(info["models"]),
             "modelMentions": dict(info["model_counts"]),
             "summaries": [],
+            "change": competitor_changes.get(normalize_comp_name(name)),
         })
     competitors_out.sort(key=lambda x: -x["mentions"])
 
