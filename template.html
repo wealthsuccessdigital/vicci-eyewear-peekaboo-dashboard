@@ -1724,8 +1724,8 @@ function renderTrends(){
 
   if(hasGoogle){
     var ga4=GOOGLE_DATA.ga4,gsc=GOOGLE_DATA.gsc;
-    html+='<div class="cc"><div class="cc-head"><div><div class="cc-title">Sessions Over Time</div><div class="cc-sub">GA4 &middot; monthly, including AI Assistant referral sessions</div></div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('Sessions MoM',ga4.deltas.sessions.mom)+deltaBadge('Sessions YoY',ga4.deltas.sessions.yoy)+'</div></div>'+
+    html+='<div class="cc"><div class="cc-head"><div><div class="cc-title">Sessions Over Time</div><div class="cc-sub">GA4 &middot; monthly &middot; all sessions vs. Organic Search vs. AI Assistant referrals</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('Sessions MoM',ga4.deltas.sessions.mom)+deltaBadge('Sessions YoY',ga4.deltas.sessions.yoy)+deltaBadge('Organic MoM',ga4.deltas.organicSearchSessions.mom)+deltaBadge('Organic YoY',ga4.deltas.organicSearchSessions.yoy)+'</div></div>'+
       '<div class="cc-body" style="height:260px;padding:16px"><canvas id="trend-ga4"></canvas></div></div>';
     html+='<div class="cc"><div class="cc-head"><div><div class="cc-title">Search Performance Over Time</div><div class="cc-sub">Search Console &middot; monthly clicks and impressions</div></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+deltaBadge('Clicks MoM',gsc.deltas.clicks.mom)+deltaBadge('Clicks YoY',gsc.deltas.clicks.yoy)+'</div></div>'+
@@ -1741,9 +1741,14 @@ function renderTrends(){
   if(hasGoogle){
     var ga4m=GOOGLE_DATA.ga4.monthly;
     _trendCharts.ga4=new Chart(document.getElementById('trend-ga4'),{type:'line',data:{labels:ga4m.map(function(m){return m.month;}),datasets:[
-      {label:'Sessions',data:ga4m.map(function(m){return m.sessions;}),borderColor:'#4f46e5',backgroundColor:'#4f46e51a',fill:true,tension:.3,yAxisID:'y'},
-      {label:'AI Assistant Sessions',data:ga4m.map(function(m){return m.aiAssistantSessions;}),borderColor:'#22c55e',backgroundColor:'#22c55e1a',fill:true,tension:.3,yAxisID:'y1'}
-    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{y:{beginAtZero:true,position:'left'},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false}}}}});
+      {label:'All Sessions',data:ga4m.map(function(m){return m.sessions;}),borderColor:'#4f46e5',backgroundColor:'#4f46e51a',fill:true,tension:.3,yAxisID:'y'},
+      {label:'Organic Search Sessions',data:ga4m.map(function(m){return m.organicSearchSessions;}),borderColor:'#f59e0b',backgroundColor:'#f59e0b1a',fill:true,tension:.3,yAxisID:'y1'},
+      {label:'AI Assistant Sessions',data:ga4m.map(function(m){return m.aiAssistantSessions;}),borderColor:'#22c55e',backgroundColor:'#22c55e1a',fill:true,tension:.3,yAxisID:'y2'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:12}}},scales:{
+      y:{beginAtZero:true,position:'left',ticks:{color:'#4f46e5'},title:{display:true,text:'All Sessions',color:'#4f46e5',font:{size:11}}},
+      y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{color:'#f59e0b'},title:{display:true,text:'Organic Search',color:'#f59e0b',font:{size:11}}},
+      y2:{beginAtZero:true,position:'right',offset:true,grid:{drawOnChartArea:false},ticks:{color:'#22c55e'},title:{display:true,text:'AI Assistant',color:'#22c55e',font:{size:11}}}
+    }}});
 
     var gscm=GOOGLE_DATA.gsc.monthly;
     _trendCharts.gsc=new Chart(document.getElementById('trend-gsc'),{type:'line',data:{labels:gscm.map(function(m){return m.month;}),datasets:[

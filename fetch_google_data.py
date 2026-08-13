@@ -102,7 +102,7 @@ def fetch_google_analytics(sa_info, property_id, days=30, months=24):
         metrics=[Metric(name="sessions"), Metric(name="totalUsers")],
         date_ranges=[DateRange(start_date=_months_ago(months).isoformat(), end_date="today")],
     ))
-    buckets = defaultdict(lambda: {"sessions": 0, "users": 0, "aiAssistantSessions": 0})
+    buckets = defaultdict(lambda: {"sessions": 0, "users": 0, "aiAssistantSessions": 0, "organicSearchSessions": 0})
     for r in monthly_resp.rows:
         ym_raw = r.dimension_values[0].value  # "202401"
         channel = r.dimension_values[1].value
@@ -113,6 +113,8 @@ def fetch_google_analytics(sa_info, property_id, days=30, months=24):
         buckets[ym]["users"] += users
         if re.search(r"ai assistant", channel, re.I):
             buckets[ym]["aiAssistantSessions"] += sessions
+        if re.search(r"organic search", channel, re.I):
+            buckets[ym]["organicSearchSessions"] += sessions
     monthly = [{"month": ym, **v} for ym, v in sorted(buckets.items())]
 
     return {
@@ -122,6 +124,7 @@ def fetch_google_analytics(sa_info, property_id, days=30, months=24):
         "deltas": {
             "sessions": _compute_deltas(monthly, "sessions"),
             "aiAssistantSessions": _compute_deltas(monthly, "aiAssistantSessions"),
+            "organicSearchSessions": _compute_deltas(monthly, "organicSearchSessions"),
         },
     }
 
