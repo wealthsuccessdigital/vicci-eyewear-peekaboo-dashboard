@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
+          git add index.html prompt_cache.json
           git diff --staged --quiet && echo "No changes to commit" || git commit -m "Daily report refresh: $(date -u +%Y-%m-%d)"
           git push
 
