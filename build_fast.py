@@ -17,6 +17,7 @@ import time
 import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date
 from urllib.parse import urlparse
 
 import requests
@@ -152,14 +153,53 @@ def load_config(path="config.json"):
 BASE_URL = "https://www.aipeekaboo.com/api/v1"
 
 
+class DailyQuotaExhausted(Exception):
+    """Raised immediately (no retry/sleep) when PeekABoo reports 0 calls left
+    for the day, so a run fails fast in seconds instead of retrying against a
+    ceiling that won't lift for hours and burning the next day's quota too."""
+
+
+# Adaptive per-minute pacing: PeekABoo's plan tier (and therefore its rate
+# limit) can change without a code change on our end, so instead of hardcoding
+# a req/min figure we read the account's real limit off response headers and
+# retune the pacing to match. Starts conservative (5/min, today's confirmed
+# Starter-tier limit) until the first real response corrects it.
+_rate_lock = threading.Lock()
+_current_rate_limit = [5]
+
+
+def _note_rate_limit(resp):
+    limit_hdr = resp.headers.get("X-RateLimit-Limit") or resp.headers.get("X-Ratelimit-Limit")
+    if limit_hdr:
+        try:
+            with _rate_lock:
+                _current_rate_limit[0] = max(1, int(limit_hdr))
+        except ValueError:
+            pass
+
+
+def _min_fetch_interval():
+    with _rate_lock:
+        limit = _current_rate_limit[0]
+    return 60.0 / limit + 0.3  # small buffer so we land just under the limit, not on it
+
+
 def api_get(api_key, path, params=None, retries=5):
     """GET request with rate-limit retry (reads X-RateLimit-Reset header)."""
     headers = {"X-API-Key": api_key}
     url = BASE_URL + path
     for attempt in range(retries):
         resp = requests.get(url, headers=headers, params=params, timeout=30)
+        _note_rate_limit(resp)
         if resp.status_code == 429:
-            reset = resp.headers.get("X-RateLimit-Reset")
+            daily_remaining = resp.headers.get("X-RateLimit-Daily-Remaining") or resp.headers.get("X-Ratelimit-Daily-Remaining")
+            if daily_remaining == "0":
+                reset = resp.headers.get("X-RateLimit-Reset") or resp.headers.get("X-Ratelimit-Reset")
+                raise DailyQuotaExhausted(
+                    f"Daily PeekABoo API quota exhausted (0 remaining)"
+                    + (f", resets at epoch {reset}" if reset else "")
+                )
+            reset = resp.headers.get("X-RateLimit-Reset") or resp.headers.get("X-Ratelimit-Reset")
             if reset:
                 wait = max(1, int(reset) - int(time.time()))
             else:
@@ -196,14 +236,13 @@ def fetch_all_prompts(api_key, brand_id):
 _fetch_semaphore = threading.Semaphore(4)  # max 4 concurrent prompt fetches
 _fetch_lock = threading.Lock()
 _last_fetch_time = [0.0]
-_MIN_FETCH_INTERVAL = 3.2  # seconds between calls to stay under 20 req/min
 
 def fetch_prompt_detail(api_key, brand_id, prompt_id):
     """Fetch full prompt detail including history with sources and entities."""
     with _fetch_semaphore:
         with _fetch_lock:
             now = time.time()
-            wait = _MIN_FETCH_INTERVAL - (now - _last_fetch_time[0])
+            wait = _min_fetch_interval() - (now - _last_fetch_time[0])
             if wait > 0:
                 time.sleep(wait)
             _last_fetch_time[0] = time.time()
@@ -224,9 +263,43 @@ def fetch_competitor_changes(api_key, brand_id):
             if name:
                 result[normalize_comp_name(name)] = c.get("change")
         return result
+    except DailyQuotaExhausted:
+        raise
     except Exception as e:
         print(f"  Warning: could not fetch competitor change data: {e}")
         return {}
+
+
+# ─── Prompt-detail cache (rotation across days) ──────────────────────────────
+# PeekABoo's daily call quota (as low as 50/day on Starter tier) can't cover a
+# full-detail fetch of every tracked prompt in one run once a brand tracks
+# more prompts than the quota allows. Instead of fetching all of them every
+# day, we persist each prompt's last-fetched detail to disk and each run only
+# refreshes the least-recently-fetched slice (PROMPT_DETAIL_BUDGET_PER_RUN of
+# them), reusing the cached detail for the rest. A full rotation completes in
+# ceil(prompt_count / budget) days; Overview/visibility stats stay accurate
+# every run since every prompt is still represented, just with detail that's
+# up to a few days old for whichever slice wasn't refreshed today.
+
+PROMPT_DETAIL_BUDGET_PER_RUN = 40
+
+
+def load_prompt_cache(path):
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"  Warning: could not read prompt cache at {path}: {e}")
+    return {}
+
+
+def save_prompt_cache(path, cache):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+    except Exception as e:
+        print(f"  Warning: could not write prompt cache to {path}: {e}")
 
 
 # ─── Classification helpers ───────────────────────────────────────────────────
@@ -675,13 +748,32 @@ def _brand_context(text, brand_name, window=600):
     return excerpt
 
 
-def process_brand_data(api_key, brand_cfg, llm_cfg=None):
-    """Fetch and process all data for a single brand."""
+def process_brand_data(api_key, brand_cfg, llm_cfg=None, cache=None, budget=PROMPT_DETAIL_BUDGET_PER_RUN):
+    """Fetch and process all data for a single brand.
+
+    `cache` is the full multi-brand prompt-detail cache (mutated in place;
+    caller is responsible for persisting it). `budget` caps how many
+    full prompt-detail calls this run makes; the rest are served from
+    whatever was cached on a previous run, oldest-first, so a full
+    rotation across all tracked prompts completes over several days
+    instead of requiring one call per prompt every single day.
+    """
     brand_id = brand_cfg["id"]
     brand_name = brand_cfg["name"]
+    brand_key = brand_cfg.get("key", brand_name)
+    brand_cache = cache.setdefault(brand_key, {}) if cache is not None else {}
+    today_str = date.today().isoformat()
 
     print(f"  Fetching prompts for {brand_name}...")
-    prompts_raw = fetch_all_prompts(api_key, brand_id)
+    try:
+        prompts_raw = fetch_all_prompts(api_key, brand_id)
+        brand_cache["_prompts_raw"] = {"fetched_at": today_str, "data": prompts_raw}
+    except DailyQuotaExhausted as e:
+        cached_list = brand_cache.get("_prompts_raw")
+        if not cached_list:
+            raise  # nothing to fall back to; can't build this brand at all today
+        prompts_raw = cached_list["data"]
+        print(f"    {e}. Using the prompt list cached from {cached_list['fetched_at']} instead.")
     print(f"  Processing {len(prompts_raw)} prompts...")
 
     prompts_out = []
@@ -691,26 +783,60 @@ def process_brand_data(api_key, brand_cfg, llm_cfg=None):
     sentiment_mentions = []
     raw_prompt_history = []  # for time-range filtering in the frontend
 
-    # Pre-fetch all prompt details in parallel (rate-limited via semaphore in fetch_prompt_detail)
-    print(f"  Parallel-fetching {len(prompts_raw)} prompt details (4 workers, rate-limited)...")
+    # Decide which prompts get a fresh detail fetch this run: whichever have
+    # gone longest without one (never-cached prompts sort first).
+    def _last_fetched(p):
+        prompt_id = p.get("id") or p.get("promptId")
+        return (brand_cache.get(prompt_id) or {}).get("fetched_at") or ""
+
+    order = sorted(range(len(prompts_raw)), key=lambda i: _last_fetched(prompts_raw[i]))
+    today_batch = set(order[:budget]) if budget is not None else set(order)
+    print(f"  Refreshing {len(today_batch)} of {len(prompts_raw)} prompt details this run "
+          f"(quota budget); the rest use the most recent cached fetch.")
+
     details_map = {}
+    quota_exhausted = False
 
     def _fetch_one(p_idx_p):
         p_idx, p = p_idx_p
         prompt_id = p.get("id") or p.get("promptId")
         try:
             detail = fetch_prompt_detail(api_key, brand_id, prompt_id)
-            if (p_idx + 1) % 10 == 0 or p_idx + 1 == len(prompts_raw):
-                print(f"    Fetched {p_idx + 1}/{len(prompts_raw)} prompts...")
-            return p_idx, detail
+            return p_idx, prompt_id, detail, None
+        except DailyQuotaExhausted as e:
+            return p_idx, prompt_id, None, e
         except Exception as e:
             print(f"    Warning: could not fetch prompt {prompt_id}: {e}")
-            return p_idx, p
+            return p_idx, prompt_id, None, None
 
+    todo = [(i, prompts_raw[i]) for i in order if i in today_batch]
+    fetched_count = 0
     with ThreadPoolExecutor(max_workers=4) as executor:
-        for p_idx, detail in executor.map(_fetch_one, enumerate(prompts_raw)):
+        futures = {executor.submit(_fetch_one, item): item for item in todo}
+        for fut in as_completed(futures):
+            p_idx, prompt_id, detail, err = fut.result()
+            if isinstance(err, DailyQuotaExhausted):
+                if not quota_exhausted:
+                    print(f"    {err}. Stopping further fetches this run; "
+                          f"remaining prompts will use cached data.")
+                quota_exhausted = True
+                continue
             if detail is not None:
                 details_map[p_idx] = detail
+                brand_cache[prompt_id] = {"fetched_at": today_str, "detail": detail}
+            fetched_count += 1
+            if fetched_count % 10 == 0 or fetched_count == len(todo):
+                print(f"    Fetched {fetched_count}/{len(todo)} prompts...")
+
+    # Fill in everything not freshly fetched (out of budget, or skipped after
+    # the quota ran out mid-run) from cache; fall back to the shallow
+    # list-level object (no history) only if nothing was ever cached for it.
+    for p_idx, p in enumerate(prompts_raw):
+        if p_idx in details_map:
+            continue
+        prompt_id = p.get("id") or p.get("promptId")
+        cached = brand_cache.get(prompt_id)
+        details_map[p_idx] = cached["detail"] if cached else p
 
     print(f"  Processing {len(prompts_raw)} prompt details...")
     for p_idx, p in enumerate(prompts_raw):
@@ -1041,7 +1167,13 @@ def process_brand_data(api_key, brand_cfg, llm_cfg=None):
         comp_data[name]["models"].add(model_key)
         comp_data[name]["model_counts"][model_key] += 1
 
-    competitor_changes = fetch_competitor_changes(api_key, brand_id)
+    try:
+        competitor_changes = fetch_competitor_changes(api_key, brand_id)
+        brand_cache["_competitor_changes"] = {"fetched_at": today_str, "data": competitor_changes}
+    except DailyQuotaExhausted as e:
+        cached_cc = brand_cache.get("_competitor_changes")
+        competitor_changes = cached_cc["data"] if cached_cc else {}
+        print(f"    {e}. Using {'cached' if cached_cc else 'empty'} competitor change data instead.")
     competitors_out = []
     for name, info in comp_data.items():
         sents = info["sentiments"]
@@ -1297,6 +1429,10 @@ def main():
         print(f"Error: template.html not found at {template_path}")
         sys.exit(1)
 
+    cache_path = os.path.join(script_dir, "prompt_cache.json")
+    prompt_cache = load_prompt_cache(cache_path)
+    prompt_budget = int(cfg.get("prompt_detail_budget_per_run", PROMPT_DETAIL_BUDGET_PER_RUN))
+
     D = {
         "prompts": {},
         "citations": {},
@@ -1311,33 +1447,38 @@ def main():
     ACTIONS = {}
     RAW_HISTORY = {}
 
-    for b in brands_cfg:
-        brand_name = b["name"]
-        brand_key = b["key"]
-        brand_domain = b["domain"]
+    try:
+        for b in brands_cfg:
+            brand_name = b["name"]
+            brand_key = b["key"]
+            brand_domain = b["domain"]
 
-        print(f"\nProcessing brand: {brand_name}")
+            print(f"\nProcessing brand: {brand_name}")
 
-        brand_data = process_brand_data(api_key, b, llm_cfg=llm_cfg)
+            brand_data = process_brand_data(api_key, b, llm_cfg=llm_cfg, cache=prompt_cache, budget=prompt_budget)
 
-        D["prompts"][brand_name] = brand_data["prompts"]
-        D["citations"][brand_name] = brand_data["citations"]
-        D["competitors"][brand_name] = brand_data["competitors"]
-        D["sentiment"][brand_name] = brand_data["sentiment"]
-        D["modelCitations"][brand_name] = brand_data["modelCitations"]
+            D["prompts"][brand_name] = brand_data["prompts"]
+            D["citations"][brand_name] = brand_data["citations"]
+            D["competitors"][brand_name] = brand_data["competitors"]
+            D["sentiment"][brand_name] = brand_data["sentiment"]
+            D["modelCitations"][brand_name] = brand_data["modelCitations"]
 
-        DURL[brand_name] = brand_data["durl"]
-        DCAT.update(brand_data["dcat"])
-        comp_domains_all.update(brand_data["comp_domains"])
+            DURL[brand_name] = brand_data["durl"]
+            DCAT.update(brand_data["dcat"])
+            comp_domains_all.update(brand_data["comp_domains"])
 
-        BRAND_CFG[brand_key] = {
-            "key": brand_name,
-            "name": brand_name,
-            "url": brand_domain,
-        }
+            BRAND_CFG[brand_key] = {
+                "key": brand_name,
+                "name": brand_name,
+                "url": brand_domain,
+            }
 
-        ACTIONS[brand_key] = generate_actions(cfg, brand_name, brand_domain, brand_data)
-        RAW_HISTORY[brand_key] = brand_data["raw_history"]
+            ACTIONS[brand_key] = generate_actions(cfg, brand_name, brand_domain, brand_data)
+            RAW_HISTORY[brand_key] = brand_data["raw_history"]
+    finally:
+        # Persist whatever got fetched even if a brand failed partway through
+        # (e.g. quota ran out mid-run), so that progress isn't lost.
+        save_prompt_cache(cache_path, prompt_cache)
 
     print("\nFetching Google Analytics / Search Console data...")
     import fetch_google_data
