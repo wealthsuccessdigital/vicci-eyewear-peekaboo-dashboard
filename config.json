@@ -13,5 +13,6 @@
   "report_title": "Vicci Eyewear — AI Visibility Report",
   "output_file": "index.html",
   "ga4_property_id": "291680137",
-  "gsc_site_url": "sc-domain:viccieyewear.com"
+  "gsc_site_url": "sc-domain:viccieyewear.com",
+  "prompt_detail_budget_per_run": 40
 }
