@@ -1610,6 +1610,26 @@ function renderCitations(){
     return;
   }
   /* default (all citations) path */
+  var _cdc=_citationDomainChanges();
+  var cdcCard='';
+  if(_cdc&&_cdc.rows.length){
+    var drops=_cdc.rows.filter(function(r){return r.change<0;}).sort(function(a,b){return a.change-b.change;}).slice(0,10);
+    var gains=_cdc.rows.filter(function(r){return r.change>0;}).sort(function(a,b){return b.change-a.change;}).slice(0,10);
+    var chgRow=function(r){
+      var col=r.change<0?'#dc2626':'#16a34a';
+      var arrow=r.change<0?'&#9660;':'&#9650;';
+      return '<tr><td style="display:flex;align-items:center"><img class="dom-fav" src="'+fav(r.domain)+'" onerror="this.style.display=\'none\'" style="margin-right:5px">'+r.domain+'</td><td style="text-align:right;color:var(--ink4)">'+r.prev+'</td><td style="text-align:right;font-weight:600">'+r.last+'</td><td style="text-align:right;font-weight:600;color:'+col+'">'+arrow+' '+Math.abs(r.change)+'</td></tr>';
+    };
+    var dropRows=drops.length?drops.map(chgRow).join(''):'<tr><td colspan="4" style="color:var(--ink4);font-size:12px;padding:10px">No domains dropped citations this week.</td></tr>';
+    var gainRows=gains.length?gains.map(chgRow).join(''):'<tr><td colspan="4" style="color:var(--ink4);font-size:12px;padding:10px">No domains gained citations this week.</td></tr>';
+    cdcCard='<div class="cc"><div class="cc-head"><div><div class="cc-title">Citation Sources: Week-over-Week Changes</div><div class="cc-sub">week of '+_cdc.prevWk+' vs. week of '+_cdc.lastWk+' &middot; explains the Total Citations WoW figure above</div></div></div>'+
+      '<div class="two-col">'+
+        '<div><div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.03em;padding:10px 12px 4px">Biggest drops</div><table class="dom-table"><thead><tr><th>Domain</th><th style="text-align:right">Prev wk</th><th style="text-align:right">Last wk</th><th style="text-align:right">Change</th></tr></thead><tbody>'+dropRows+'</tbody></table></div>'+
+        '<div><div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.03em;padding:10px 12px 4px">Biggest gains</div><table class="dom-table"><thead><tr><th>Domain</th><th style="text-align:right">Prev wk</th><th style="text-align:right">Last wk</th><th style="text-align:right">Change</th></tr></thead><tbody>'+gainRows+'</tbody></table></div>'+
+      '</div>'+
+      '<div style="padding:8px 12px 12px;font-size:12px;color:var(--ink4)">Based on PeekABoo\'s raw per-prompt-run history, the same data behind the Total Citations WoW figure. PeekABoo caps each prompt at its 100 most recent runs, so a swing here can also reflect which prompts happened to run that week, not only real citation gains or losses on the source itself.</div>'+
+    '</div>';
+  }
   var tdt=c.domainTypes.reduce(function(a,x){return a+x.count;},0);
   var tct=c.contentTypes.reduce(function(a,x){return a+x.count;},0);
   var dtBars=_barRows(c.domainTypes,tdt);
@@ -1630,6 +1650,7 @@ function renderCitations(){
   }).join('');
   document.getElementById('citContent').innerHTML=
     filterBar+
+    cdcCard+
     '<div class="two-col">'+
       '<div class="cc"><div class="cc-head"><div class="cc-title">Page Type</div><div class="cc-sub">'+tdt.toLocaleString()+' total citations</div></div><div class="cc-body">'+dtBars+'</div></div>'+
       '<div class="cc"><div class="cc-head"><div class="cc-title">Content Type</div><div class="cc-sub">how AI sources are classified</div></div><div class="cc-body">'+ctBars+'</div></div>'+
@@ -1768,6 +1789,43 @@ function _weeklyDelta(weekly,field){
   var lv=last[field],pv=prev[field];
   var wow=(pv!==null&&pv!==undefined&&pv!==0&&lv!==null&&lv!==undefined)?Math.round((lv-pv)/pv*1000)/10:null;
   return {current:lv,wow:wow};
+}
+function _computeCitationWeeklyDomains(){
+  // Same underlying data/week-bucketing as _computeWeeklyStats' citations
+  // field, but broken out per-domain instead of summed, so a WoW swing in
+  // the Total Citations stat card can be traced to specific sources.
+  var rh=RAW_HISTORY[currentBrand];
+  if(!rh||!rh.prompts)return {weeks:[],byWeek:{}};
+  var curWk=_weekStart(new Date().toISOString().slice(0,10));
+  var byWeek={};
+  rh.prompts.forEach(function(p){
+    (p.entries||[]).forEach(function(e){
+      if(!e.date)return;
+      var wk=_weekStart(e.date);
+      if(wk===curWk)return; // exclude in-progress week, same as _weeklyDelta
+      (e.srcs||[]).forEach(function(src){
+        if(!src.u)return;
+        var domain=_extractDomainJS(src.u);
+        if(!byWeek[wk])byWeek[wk]={};
+        byWeek[wk][domain]=(byWeek[wk][domain]||0)+1;
+      });
+    });
+  });
+  return {weeks:Object.keys(byWeek).sort(),byWeek:byWeek};
+}
+function _citationDomainChanges(){
+  var d=_computeCitationWeeklyDomains();
+  if(d.weeks.length<2)return null;
+  var lastWk=d.weeks[d.weeks.length-1],prevWk=d.weeks[d.weeks.length-2];
+  var last=d.byWeek[lastWk]||{},prev=d.byWeek[prevWk]||{};
+  var domains={};
+  Object.keys(last).forEach(function(k){domains[k]=true;});
+  Object.keys(prev).forEach(function(k){domains[k]=true;});
+  var rows=Object.keys(domains).map(function(dom){
+    var l=last[dom]||0,p=prev[dom]||0;
+    return {domain:dom,last:l,prev:p,change:l-p};
+  });
+  return {lastWk:lastWk,prevWk:prevWk,rows:rows};
 }
 var _trendCharts={};
 function _destroyTrendCharts(){Object.values(_trendCharts).forEach(function(c){try{c.destroy();}catch(e){}});_trendCharts={};}
