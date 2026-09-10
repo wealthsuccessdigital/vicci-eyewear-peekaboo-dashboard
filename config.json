@@ -15,5 +15,10 @@
   "ga4_property_id": "291680137",
   "gsc_site_url": "sc-domain:viccieyewear.com",
   "prompt_detail_budget_per_run": 40,
-  "content_sitemap_urls": ["https://www.viccieyewear.com/sitemap_blogs_1.xml"]
+  "content_sitemap_urls": [
+    "https://www.viccieyewear.com/sitemap_blogs_1.xml",
+    "https://www.viccieyewear.com/sitemap_products_1.xml?from=5440690028699&to=9633682292995",
+    "https://www.viccieyewear.com/sitemap_collections_1.xml?from=234701029531&to=463954870531",
+    "https://www.viccieyewear.com/sitemap_pages_1.xml?from=63394742427&to=139004772611"
+  ]
 }
