@@ -359,6 +359,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
     <button class="stab" onclick="switchTab('competitors',this)">Competitors</button>
     <button class="stab" onclick="switchTab('citations',this)">Citations</button>
     <button class="stab" onclick="switchTab('actions',this)">Actions</button>
+    <button class="stab" onclick="switchTab('content',this)">Content</button>
     <button class="stab" onclick="switchTab('search',this)">Search &amp; Traffic</button>
     <button class="stab" onclick="switchTab('trends',this)">Trends</button>
   </div>
@@ -432,6 +433,7 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
     <div class="act-grid" id="actGrid"></div>
   </div>
 </div>
+<div id="panel-content" class="panel"><div id="contentTabBody"></div></div>
 <div id="panel-search" class="panel"><div id="searchContent"></div></div>
 <div id="panel-trends" class="panel"><div id="trendsContent"></div></div>
 </div>
@@ -458,6 +460,7 @@ const ICONS={
 };
 const ACTIONS=%%ACTIONS%%;
 const GOOGLE_DATA=%%GOOGLE_DATA%%;
+const CONTENT_DATA=%%CONTENT_DATA%%;
 let currentBrand='%%DEFAULT_BRAND%%',activeModel='all',promptFilter='all',intentFilter='all',actFilter='all',searchQuery='';
 let sortCol='visibility',sortDir='desc';
 let currentTimeRange='all';
@@ -768,7 +771,7 @@ function _buildIntentFilteredComps(bk){
   return Object.values(compMap).sort(function(a,b){return b.mentions-a.mentions;});
 }
 function switchTab(t,btn){document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('panel-'+t).classList.add('active');}
-function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();renderSearchTraffic();renderTrends();}
+function renderAll(){renderStats();renderOverview();renderPrompts();renderSentiment();renderCompetitors();renderCitations();renderActionsGrid();renderContent();renderSearchTraffic();renderTrends();}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function safeUrl(u){try{var p=new URL(u);return(p.protocol==='https:'||p.protocol==='http:')?u:'#';}catch(e){return '#';}}
 function fav(d,sz){return 'https://www.google.com/s2/favicons?domain='+d+'&sz='+(sz||32);}
@@ -1700,6 +1703,60 @@ function renderActionsGrid(){
   }).join('');
 }
 function toggleAct(id){var card=document.getElementById(id);var wasCollapsed=card.classList.contains('collapsed');document.querySelectorAll('.act-card').forEach(function(c){c.classList.add('collapsed');});if(wasCollapsed)card.classList.remove('collapsed');}
+var _contentChart=null;
+function _cDate(d){if(!d)return '-';var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var p=String(d).split('-');return mo[(+p[1])-1]+' '+(+p[2])+', '+p[0];}
+function _cAgo(n){if(n===null||n===undefined)return '';if(n<=0)return 'today';if(n===1)return '1 day ago';if(n<31)return n+' days ago';if(n<62)return '1 month ago';if(n<365)return Math.round(n/30)+' months ago';var y=Math.floor(n/365);return y+(y===1?' year ago':' years ago');}
+function renderContent(){
+  if(_contentChart){try{_contentChart.destroy();}catch(e){}_contentChart=null;}
+  var el=document.getElementById('contentTabBody');
+  var CD=CONTENT_DATA;
+  if(!CD||!CD.available){
+    el.innerHTML='<div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128196;</div><h3>Content sitemap not connected</h3><p>Add a "content_sitemap_urls" entry (your blog XML sitemap URL) to config.json to enable this section.</p></div></div></div>';
+    return;
+  }
+  var t=CD.totals;
+  var infoSvg='<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg>';
+  function tip(x){return '<span class="info-tip" data-tip="'+x+'" style="margin-right:4px">'+infoSvg+'</span>';}
+  function badge(s){
+    if(s==='new')return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#22c55e1a;color:#15803d">New</span>';
+    if(s==='updated')return '<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#4f46e51a;color:#3730a3">Updated</span>';
+    return '<span style="color:var(--ink4);font-size:12px">-</span>';
+  }
+  var newCard=CD.firstRun
+    ? '<div class="stat-card"><div class="sc-label">'+tip('Genuinely new URLs can only be detected from the build after tracking starts')+'New Posts</div><div class="sc-val" style="color:var(--ink4)">-</div><div class="sc-sub">tracking from '+_cDate(CD.initializedAt)+'</div>'+_statNote('From the next daily build onward this counts URLs that were never in the sitemap before, a true new-post signal the raw sitemap cannot give on its own. It reads as a dash today because tracking just started.')+'</div>'
+    : '<div class="stat-card"><div class="sc-label">'+tip('URLs first seen in the sitemap since tracking started on '+_cDate(CD.initializedAt)+', within the last 90 days')+'New Posts (90d)</div><div class="sc-val '+(t.newPublished90d>0?'good':'')+'">'+t.newPublished90d+'</div><div class="sc-sub">since '+_cDate(CD.initializedAt)+'</div>'+_statNote('URLs that appeared in the sitemap for the first time since this report began tracking. This is a true new-post count, separate from edits made to posts that already existed.')+'</div>';
+  var cards=
+    '<div class="stat-card"><div class="sc-label">'+tip('Total article URLs listed in the blog sitemap right now')+'Total Articles</div><div class="sc-val">'+t.total+'</div><div class="sc-sub">live in the blog sitemap</div>'+_statNote('Every published blog post the sitemap currently lists. Drafts and hidden pages are not in the sitemap, so they are not counted.')+'</div>'+
+    '<div class="stat-card"><div class="sc-label">'+tip('Articles whose sitemap last-modified date falls within the last 30 days')+'Changed (30d)</div><div class="sc-val '+(t.updated30d>0?'good':'')+'">'+t.updated30d+'</div><div class="sc-sub">published or edited</div>'+_statNote('Posts the sitemap says were touched in the last 30 days. A sitemap does not separate a brand-new post from an edit to an old one, so both land here. See the by-month chart below for the pattern over time.')+'</div>'+
+    '<div class="stat-card"><div class="sc-label">'+tip('Articles whose sitemap last-modified date falls within the last 90 days')+'Changed (90d)</div><div class="sc-val">'+t.updated90d+'</div><div class="sc-sub">published or edited</div>'+_statNote('The same measure as Changed (30d) over a full quarter, useful for judging overall content cadence rather than any single week.')+'</div>'+
+    newCard+
+    '<div class="stat-card"><div class="sc-label">'+tip('The most recent last-modified date across every article in the sitemap')+'Last Change</div><div class="sc-val" style="font-size:17px">'+_cDate(t.lastChange)+'</div><div class="sc-sub">'+(CD.recent[0]?_cAgo(CD.recent[0].daysAgo):'')+'</div>'+_statNote('The freshest last-modified timestamp anywhere in the sitemap. If this date starts drifting weeks into the past, publishing has stalled.')+'</div>';
+
+  var rows=CD.recent.map(function(a){
+    var img=a.image?'<img src="'+esc(a.image)+'" alt="" loading="lazy" style="width:44px;height:33px;object-fit:cover;border-radius:4px;border:1px solid var(--border);display:block" onerror="this.style.visibility=\'hidden\'">':'';
+    var path=a.url.replace(/^https?:\/\/(www\.)?/,'');
+    return '<tr>'+
+      '<td style="width:56px">'+img+'</td>'+
+      '<td><a href="'+esc(a.url)+'" target="_blank" rel="noopener" style="color:var(--v);text-decoration:none;font-weight:500">'+esc(a.title)+'</a>'+
+        '<div style="font-size:11px;color:var(--ink4);margin-top:2px">'+esc(path)+'</div></td>'+
+      '<td>'+badge(a.status)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+_cDate(a.lastmodDate)+'<div style="font-size:11px;color:var(--ink4)">'+_cAgo(a.daysAgo)+'</div></td>'+
+    '</tr>';
+  }).join('');
+
+  var srcList=(CD.sitemaps||[]).map(function(s){return esc(s.replace(/^https?:\/\/(www\.)?/,''));}).join(', ');
+  el.innerHTML=
+    '<div class="stat-strip" style="margin-bottom:14px"><div class="stat-row">'+cards+'</div></div>'+
+    '<div class="cc"><div class="cc-head"><div><div class="cc-title">Content Activity by Month</div><div class="cc-sub">articles with a sitemap last-modified date in each month</div></div></div>'+
+      '<div class="cc-body" style="height:230px;padding:16px"><canvas id="content-activity"></canvas></div>'+
+      _ccNote('Each bar counts how many blog URLs carry a last-modified date in that month. A tall bar can mean a burst of new posts, a batch re-edit of older posts, or a store-wide change. The sitemap alone cannot tell which, so read older months loosely and treat the most recent months as the real signal of current publishing activity.')+'</div>'+
+    '<div class="cc"><div class="cc-head"><div><div class="cc-title">Recently Published or Updated</div><div class="cc-sub">'+CD.recent.length+' most recently changed articles, newest first</div></div></div>'+
+      '<div class="cc-body np"><table class="dom-table"><thead><tr><th></th><th>Article</th><th>Status</th><th style="text-align:right">Last modified</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      _ccNote('Pulled directly from '+srcList+' on each daily build. "New" marks a URL that first appeared in the sitemap after tracking started on '+_cDate(CD.initializedAt)+', so it is a genuine new post. "Updated" marks an existing post whose last-modified date has moved forward since then. A dash means the post last changed before tracking began, so only its date is known.')+'</div>';
+
+  var m=CD.monthly||[];
+  _contentChart=new Chart(document.getElementById('content-activity'),{type:'bar',data:{labels:m.map(function(x){return x.month;}),datasets:[{label:'Articles changed',data:m.map(function(x){return x.modified;}),backgroundColor:'#4f46e5',borderRadius:4,maxBarThickness:40}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}});
+}
 function renderSearchTraffic(){
   var el=document.getElementById('searchContent');
   if(!GOOGLE_DATA||!GOOGLE_DATA.available){
