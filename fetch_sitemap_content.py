@@ -1,8 +1,9 @@
-"""Fetches recent blog/content activity from the site's XML sitemap(s).
+"""Fetches recent content activity from the site's XML sitemap(s).
 
 Returns {"available": False} if no sitemap URL is configured. Otherwise
-returns the most-recently-modified content pieces plus per-month activity
-buckets, so the report can show what has been published and updated.
+returns the most-recently-modified content pieces (blog posts, product
+pages, collection pages, static pages) plus per-month activity buckets,
+so the report can show what has been published and updated.
 
 Publish vs. update: a sitemap only carries <lastmod>, which moves both on
 first publication and on any later edit. To tell them apart we persist a
@@ -10,6 +11,12 @@ snapshot (content_cache.json) and, from the second run onward, flag a URL
 as "new" the first run we ever see it, and "updated" when its lastmod
 advances. On the very first run there is no baseline, so everything is
 reported by lastmod alone with no new/updated badge.
+
+Note on product/collection churn: Shopify bumps a product's or
+collection's lastmod on many non-editorial events (inventory, price, tag
+changes), so "changed this month" is a much noisier signal for those
+types than for blog posts and pages. The report groups by type so that
+noise stays visually separable.
 """
 
 import json
@@ -27,6 +34,9 @@ _NS = {
 
 _NEW_BADGE_DAYS = 120      # how long a genuinely-new URL keeps its "New" badge
 _UPDATED_BADGE_DAYS = 45   # how long an edited URL keeps its "Updated" badge
+
+_TYPES = ("blog", "product", "collection", "page")
+_PER_TYPE_RECENT = 40      # rows kept per type for the report table
 
 
 def _today():
@@ -56,9 +66,17 @@ def _title_from_slug(loc):
     return (slug[:1].upper() + slug[1:]) if slug else loc
 
 
-def _blog_from_loc(loc):
-    m = re.search(r"/blogs/([^/]+)/", loc)
-    return m.group(1) if m else None
+def _classify(loc):
+    """Map a URL to a content type, or None to skip it (homepage, blog index)."""
+    if re.search(r"/blogs/[^/]+/.+", loc):
+        return "blog"
+    if re.search(r"/products/[^/]+", loc):
+        return "product"
+    if re.search(r"/collections/[^/]+", loc):
+        return "collection"
+    if re.search(r"/pages/[^/]+", loc):
+        return "page"
+    return None
 
 
 def load_content_cache(path):
@@ -100,7 +118,20 @@ def _fetch_sitemap(url):
     return items
 
 
-def fetch_sitemap_content(cfg, cache_path, recent_limit=40, months=12):
+def _type_totals(rows, today):
+    def _within(days, e):
+        return e["daysAgo"] is not None and e["daysAgo"] <= days
+    newly = [e for e in rows if e["publishedDate"] and _days_between(e["publishedDate"], today) <= 90]
+    return {
+        "total": len(rows),
+        "updated30d": sum(1 for e in rows if _within(30, e)),
+        "updated90d": sum(1 for e in rows if _within(90, e)),
+        "newPublished90d": len(newly),
+        "lastChange": rows[0]["lastmodDate"] if rows else None,
+    }
+
+
+def fetch_sitemap_content(cfg, cache_path, months=12):
     urls = cfg.get("content_sitemap_urls")
     if isinstance(urls, str):
         urls = [urls]
@@ -111,8 +142,8 @@ def fetch_sitemap_content(cfg, cache_path, recent_limit=40, months=12):
 
     cache = load_content_cache(cache_path)
     meta = cache.setdefault("_meta", {})
-    first_run = "initialized" not in meta
     today = _today()
+    first_run = "initialized" not in meta
     if first_run:
         meta["initialized"] = today
     initialized = meta["initialized"]
@@ -125,13 +156,25 @@ def fetch_sitemap_content(cfg, cache_path, recent_limit=40, months=12):
         print(f"  Warning: sitemap fetch failed: {e}")
         return {"available": False, "error": str(e)}
 
-    # Keep only article-level blog URLs (drop the /blogs/<blog> index itself).
-    articles = [it for it in raw if re.search(r"/blogs/[^/]+/.+", it["loc"])]
+    # Each content type gets its own "tracking started" date. Adding a new
+    # sitemap later must not flag its whole back catalogue as newly published,
+    # so a type's first run is a silent baseline: no new/updated badges.
+    type_init = meta.setdefault("type_initialized", {})
+    if initialized and "blog" not in type_init:
+        type_init["blog"] = initialized  # migrate the original blog-only baseline
+    present_types = {t for t in (_classify(it["loc"]) for it in raw) if t}
+    type_first_run = {t: (t not in type_init) for t in present_types}
+    for t in present_types:
+        type_init.setdefault(t, today)
 
     now = datetime.now(timezone.utc)
     entries = []
-    for it in articles:
+    for it in raw:
         loc = it["loc"]
+        ctype = _classify(loc)
+        if ctype is None:
+            continue
+
         lm_dt = _parse_lastmod(it["lastmod"])
         lm_date = lm_dt.date().isoformat() if lm_dt else None
 
@@ -145,21 +188,28 @@ def fetch_sitemap_content(cfg, cache_path, recent_limit=40, months=12):
             prev["lastmod"] = it["lastmod"] or prev.get("lastmod")
 
         first_seen = prev.get("first_seen")
-        # A first_seen strictly after the day tracking began = a genuinely new URL.
-        known_publish = first_seen if (first_seen and first_seen > initialized) else None
+        t_init = type_init.get(ctype, today)
+        # A first_seen strictly after this type's tracking began = a genuinely new URL.
+        known_publish = None
+        if not type_first_run.get(ctype) and first_seen and first_seen > t_init:
+            known_publish = first_seen
         last_updated = prev.get("last_updated")
 
         status = None
         if known_publish and _days_between(known_publish, today) <= _NEW_BADGE_DAYS:
             status = "new"
-        elif last_updated and _days_between(last_updated, today) <= _UPDATED_BADGE_DAYS:
+        # "Updated" only for types where a lastmod bump means an editorial edit.
+        # Shopify rewrites product/collection lastmod on every inventory or
+        # price change, so an "Updated" badge there would just be noise.
+        elif (ctype in ("blog", "page") and not type_first_run.get(ctype)
+              and last_updated and _days_between(last_updated, today) <= _UPDATED_BADGE_DAYS):
             status = "updated"
 
         entries.append({
             "url": loc,
+            "type": ctype,
             "title": it["image_title"] or _title_from_slug(loc),
             "image": it["image"],
-            "blog": _blog_from_loc(loc),
             "lastmod": it["lastmod"],
             "lastmodDate": lm_date,
             "publishedDate": known_publish,
@@ -170,36 +220,47 @@ def fetch_sitemap_content(cfg, cache_path, recent_limit=40, months=12):
     save_content_cache(cache_path, cache)
 
     entries.sort(key=lambda e: e["lastmod"] or "", reverse=True)
+    by_type = {t: [e for e in entries if e["type"] == t] for t in _TYPES}
 
-    def _within(days, e):
-        return e["daysAgo"] is not None and e["daysAgo"] <= days
-
+    # Per-month activity, split by type, over the trailing `months`.
     monthly = {}
     for e in entries:
-        if e["lastmodDate"]:
-            ym = e["lastmodDate"][:7]
-            monthly[ym] = monthly.get(ym, 0) + 1
+        if not e["lastmodDate"]:
+            continue
+        ym = e["lastmodDate"][:7]
+        row = monthly.setdefault(ym, {t: 0 for t in _TYPES})
+        row[e["type"]] += 1
     ym_sorted = sorted(monthly.keys())[-months:]
-    monthly_out = [{"month": ym, "modified": monthly[ym]} for ym in ym_sorted]
+    monthly_out = [dict(month=ym, **monthly[ym]) for ym in ym_sorted]
 
-    newly_published = [
-        e for e in entries
-        if e["publishedDate"] and _days_between(e["publishedDate"], today) <= 90
-    ]
+    # Table payload: the most recent rows of every type, so a type filter in
+    # the report always has enough to show even when one type dominates the
+    # global recency order.
+    recent = sorted(
+        [e for t in _TYPES for e in by_type[t][:_PER_TYPE_RECENT]],
+        key=lambda e: e["lastmod"] or "", reverse=True,
+    )
+
+    totals = _type_totals(entries, today)
+    totals["byType"] = {}
+    for t in _TYPES:
+        tt = _type_totals(by_type[t], today)
+        tt["initializedAt"] = type_init.get(t)
+        tt["firstRun"] = bool(type_first_run.get(t))
+        totals["byType"][t] = tt
+
+    # Overall "first run" is true only while every tracked type is still a
+    # baseline (nothing can be flagged new/updated yet).
+    overall_first_run = all(type_first_run.get(t) for t in present_types) if present_types else first_run
+    earliest_init = min((type_init[t] for t in present_types if t in type_init), default=initialized)
 
     return {
         "available": True,
         "generatedAt": today,
-        "initializedAt": initialized,
-        "firstRun": first_run,
+        "initializedAt": earliest_init,
+        "firstRun": overall_first_run,
         "sitemaps": urls,
-        "totals": {
-            "total": len(entries),
-            "updated30d": sum(1 for e in entries if _within(30, e)),
-            "updated90d": sum(1 for e in entries if _within(90, e)),
-            "newPublished90d": len(newly_published),
-            "lastChange": entries[0]["lastmodDate"] if entries else None,
-        },
+        "totals": totals,
         "monthly": monthly_out,
-        "recent": entries[:recent_limit],
+        "recent": recent,
     }
