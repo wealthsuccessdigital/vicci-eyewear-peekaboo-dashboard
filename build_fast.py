@@ -1368,7 +1368,8 @@ def js_obj_literal(py_obj):
 
 
 def inject_template(template_path, output_path, brands, D, DURL, DCAT, comp_domains,
-                    BRAND_CFG, ACTIONS, RAW_HISTORY, report_title=None, google_data=None):
+                    BRAND_CFG, ACTIONS, RAW_HISTORY, report_title=None, google_data=None,
+                    content_data=None):
     with open(template_path, encoding="utf-8") as f:
         html = f.read()
 
@@ -1388,6 +1389,7 @@ def inject_template(template_path, output_path, brands, D, DURL, DCAT, comp_doma
         "%%DEFAULT_BRAND%%": brands[0]["key"],
         "%%RAW_HISTORY%%": js_obj_literal(RAW_HISTORY),
         "%%GOOGLE_DATA%%": js_obj_literal(google_data or {"available": False}),
+        "%%CONTENT_DATA%%": js_obj_literal(content_data or {"available": False}),
     }
 
     for placeholder, value in replacements.items():
@@ -1488,6 +1490,16 @@ def main():
     else:
         print("  Google data: not configured or unavailable, skipping that section")
 
+    print("\nFetching content sitemap data...")
+    import fetch_sitemap_content
+    content_cache_path = os.path.join(script_dir, "content_cache.json")
+    content_data = fetch_sitemap_content.fetch_sitemap_content(cfg, content_cache_path)
+    if content_data.get("available"):
+        print(f"  Content data: OK ({content_data['totals']['total']} articles, "
+              f"{content_data['totals']['updated30d']} changed in last 30d)")
+    else:
+        print("  Content data: no sitemap configured or fetch failed, skipping that section")
+
     print(f"\nWriting report to {output_file}...")
     inject_template(
         template_path,
@@ -1502,6 +1514,7 @@ def main():
         RAW_HISTORY,
         report_title=cfg.get("report_title"),
         google_data=google_data,
+        content_data=content_data,
     )
     print(f"Done! Open {output_file} in your browser.")
 
