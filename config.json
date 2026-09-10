@@ -14,5 +14,6 @@
   "output_file": "index.html",
   "ga4_property_id": "291680137",
   "gsc_site_url": "sc-domain:viccieyewear.com",
-  "prompt_detail_budget_per_run": 40
+  "prompt_detail_budget_per_run": 40,
+  "content_sitemap_urls": ["https://www.viccieyewear.com/sitemap_blogs_1.xml"]
 }
