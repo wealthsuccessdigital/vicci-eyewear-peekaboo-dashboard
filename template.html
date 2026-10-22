@@ -286,6 +286,10 @@ tr.dom-row-open .dom-chev{transform:rotate(180deg)}
       <button class="tf-btn" onclick="setTimeRange('last-run',this)">Last run</button>
       <button class="tf-btn" id="customTfBtn" onclick="toggleCustomPicker(this)">Custom</button>
     </div>
+    <label id="compareToggleWrap" style="display:inline-flex;align-items:center;gap:5px;margin-left:4px;font-size:12px;color:var(--ink3);cursor:pointer;white-space:nowrap" title="When on, every stat also shows how it compares to the equal-length period immediately before the selected range">
+      <input type="checkbox" id="compareToggle" checked onchange="toggleCompare(this.checked)" style="cursor:pointer">
+      Compare to previous period
+    </label>
     <div id="customDatePicker" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--paper);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);padding:16px 18px;z-index:500;min-width:280px">
       <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink4);margin-bottom:12px">Custom date range</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -465,6 +469,8 @@ let currentBrand='%%DEFAULT_BRAND%%',activeModel='all',promptFilter='all',intent
 let sortCol='visibility',sortDir='desc';
 let currentTimeRange='all';
 let customStartDate=null,customEndDate=null;
+let compareEnabled=true;
+let D_PREV={prompts:{},citations:{},competitors:{},sentiment:{},modelCitations:{}};
 function toggleCustomPicker(btn){
   var picker=document.getElementById('customDatePicker');
   var isOpen=picker.style.display!=='none';
@@ -509,17 +515,51 @@ function setSentFilter(f,btn){sentimentFilter=f;document.querySelectorAll('#sent
 
 /* ── Time range helpers ─────────────────────────────────────────────────── */
 function _daysBack(dateStr,days){var d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()-days);return d.toISOString().split('T')[0];}
+/* ── Comparison period helpers ──────────────────────────────────────────── */
+function _daysBetweenInclusive(start,end){var s=new Date(start+'T00:00:00'),e=new Date(end+'T00:00:00');return Math.round((e-s)/86400000)+1;}
+function _currentWindowBounds(){
+  var rh=RAW_HISTORY[currentBrand];
+  if(!rh||!rh.runDates||!rh.runDates.length)return null;
+  var maxDate=rh.runDates[rh.runDates.length-1];
+  if(currentTimeRange==='last-run')return{start:maxDate,end:maxDate};
+  if(currentTimeRange==='custom'&&customStartDate&&customEndDate)return{start:customStartDate,end:customEndDate};
+  if(currentTimeRange==='all')return{start:rh.runDates[0],end:maxDate};
+  var days={'last-7':7,'last-14':14,'last-20':20}[currentTimeRange];
+  if(!days)return{start:rh.runDates[0],end:maxDate};
+  return{start:_daysBack(maxDate,days),end:maxDate};
+}
+function _prevWindowBounds(){
+  if(currentTimeRange==='all')return null; /* no meaningful "previous" for the full history */
+  var cur=_currentWindowBounds();
+  if(!cur)return null;
+  var len=_daysBetweenInclusive(cur.start,cur.end);
+  var prevEnd=_daysBack(cur.start,1);
+  var prevStart=_daysBack(prevEnd,len-1);
+  return{start:prevStart,end:prevEnd};
+}
+function _cmpPct(cur,prev){
+  if(cur===null||cur===undefined||prev===null||prev===undefined)return null;
+  if(prev===0)return cur===0?0:null;
+  return Math.round((cur-prev)/prev*100);
+}
+function _cmpBadge(cur,prev,invert){return deltaSmall(_cmpPct(cur,prev),'vs prior period',invert);}
+function toggleCompare(checked){compareEnabled=checked;_applyTimeRange();renderAll();}
 function _extractDomainJS(url){try{var parsed=new URL(url);var h=parsed.hostname.toLowerCase();return h.startsWith('www.')?h.slice(4):h;}catch(e){return url;}}
 function _normComp(name){var n=name.trim().toLowerCase();n=n.replace(/\.(ai|com|io|co|org|net|app)$/,'');n=n.replace(/\s+ai$/,'');n=n.replace(/ai$/,'');n=n.replace(/\s+(digital|agency|media|platform|labs?|technologies?|solutions?)$/,'');return n.replace(/[\s\-]/g,'');}
 function _dedupeComps(comps){var groups={};comps.forEach(function(c){var norm=_normComp(c.name);if(!groups[norm]){groups[norm]={canonical:c.name,canonicalMentions:c.mentions,mentions:0,avgScore:0,topSentiment:c.topSentiment,models:[],modelMentions:{},change:c.change};}var g=groups[norm];g.mentions+=c.mentions;if(c.mentions>g.canonicalMentions){g.canonical=c.name;g.canonicalMentions=c.mentions;g.change=c.change;}(c.models||[]).forEach(function(m){if(g.models.indexOf(m)===-1)g.models.push(m);});if(c.modelMentions){Object.keys(c.modelMentions).forEach(function(mk){g.modelMentions[mk]=(g.modelMentions[mk]||0)+c.modelMentions[mk];});}});return Object.values(groups).map(function(g){return {name:g.canonical,mentions:g.mentions,avgScore:0,topSentiment:g.topSentiment,models:g.models,modelMentions:g.modelMentions,change:g.change};}).sort(function(a,b){return b.mentions-a.mentions;});}
 
-function _computeFilteredData(brandKey){
+function _computeFilteredData(brandKey,rangeOverride){
   var rh=RAW_HISTORY[brandKey];
   if(!rh||!rh.runDates||!rh.runDates.length)return null;
   var runDates=rh.runDates;
   var maxDate=runDates[runDates.length-1];
   var cutoffDate=null,lastRunOnly=false,customEnd=null;
-  if(currentTimeRange==='last-run'){lastRunOnly=true;}
+  if(rangeOverride){
+    cutoffDate=rangeOverride.cutoffDate||null;
+    customEnd=rangeOverride.customEnd||null;
+    lastRunOnly=!!rangeOverride.lastRunOnly;
+  }
+  else if(currentTimeRange==='last-run'){lastRunOnly=true;}
   else if(currentTimeRange==='last-7'){cutoffDate=_daysBack(maxDate,7);}
   else if(currentTimeRange==='last-14'){cutoffDate=_daysBack(maxDate,14);}
   else if(currentTimeRange==='last-20'){cutoffDate=_daysBack(maxDate,20);}
@@ -649,6 +689,26 @@ function _applyTimeRange(){
       D.modelCitations[bk]=filtered.modelCitations[bk];
     }
   }
+  /* comparison period: previous equal-length window immediately before the selected range */
+  var _rhCmp=RAW_HISTORY[currentBrand];
+  var _prevBounds=null,_hasPrevData=false;
+  if(compareEnabled&&currentTimeRange!=='all'){
+    _prevBounds=_prevWindowBounds();
+    _hasPrevData=!!(_prevBounds&&_rhCmp&&_rhCmp.runDates&&_rhCmp.runDates.some(function(d){return d>=_prevBounds.start&&d<=_prevBounds.end;}));
+  }
+  if(_hasPrevData){
+    var _filteredPrev=_computeFilteredData(currentBrand,{cutoffDate:_prevBounds.start,customEnd:_prevBounds.end,lastRunOnly:false});
+    if(_filteredPrev){
+      D_PREV.prompts[bk]=_filteredPrev.prompts[bk];
+      D_PREV.citations[bk]=_filteredPrev.citations[bk];
+      D_PREV.competitors[bk]=_filteredPrev.competitors[bk];
+      D_PREV.sentiment[bk]=_filteredPrev.sentiment[bk];
+      D_PREV.modelCitations[bk]=_filteredPrev.modelCitations[bk];
+    } else {_hasPrevData=false;}
+  }
+  if(!_hasPrevData){
+    D_PREV.prompts[bk]=null;D_PREV.citations[bk]=null;D_PREV.competitors[bk]=null;D_PREV.sentiment[bk]=null;D_PREV.modelCitations[bk]=null;
+  }
   /* update h-meta with date range info */
   var rh=RAW_HISTORY[currentBrand];
   var meta='5 AI models';
@@ -668,6 +728,8 @@ function _applyTimeRange(){
     } else {
       meta=rd.length+' run'+(rd.length!==1?'s':'')+' &middot; '+rd[0]+' to '+maxDate;
     }
+    if(_hasPrevData&&_prevBounds){meta+=' <span style="color:var(--ink4)">&middot; comparing to '+_prevBounds.start+' to '+_prevBounds.end+'</span>';}
+    else if(compareEnabled&&currentTimeRange!=='all'){meta+=' <span style="color:var(--ink4)">&middot; no prior-period data to compare</span>';}
   }
   var hm=document.getElementById('hMeta');if(hm)hm.innerHTML=meta;
 }
@@ -876,7 +938,10 @@ function renderOverview(){
   var brandMentionCount=inRangeDates.reduce(function(s,d){return s+(dayBrandHits[d]||0);},0);
   var _brandDomOv=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
   var _brandPctOv=compMax>0?Math.round(brandMentionCount/compMax*100):0;
-  var _brandOvRow='<div class="ov-bar-row" style="background:rgba(79,70,229,.06);padding:6px 0;border-top:1.5px dashed rgba(79,70,229,.3);border-bottom:none"><div class="ov-bar-lbl" style="color:#4f46e5;font-weight:700"><img src="'+fav(_brandDomOv)+'" onerror="this.style.opacity=\'0\'" alt=""><span>You ('+brandName+')</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:'+_brandPctOv+'%;background:rgba(79,70,229,.85)"></div></div><div class="ov-bar-val" style="color:#4f46e5;font-weight:700">'+brandMentionCount+' mentions</div></div>';
+  var _prevOvPd=D_PREV.prompts[bk]?_filterPdByIntent(D_PREV.prompts[bk]):null;
+  var _prevBrandMentionCount=_prevOvPd?(activeModel==='all'?_prevOvPd.reduce(function(s,p){return s+(p.mentions||0);},0):_prevOvPd.reduce(function(s,p){return s+((p.models&&p.models[activeModel]&&p.models[activeModel].mentioned)?1:0);},0)):null;
+  var _brandOvCmp=_prevOvPd?_cmpBadge(brandMentionCount,_prevBrandMentionCount):deltaSmall(null,'vs prior period');
+  var _brandOvRow='<div class="ov-bar-row" style="background:rgba(79,70,229,.06);padding:6px 0;border-top:1.5px dashed rgba(79,70,229,.3);border-bottom:none"><div class="ov-bar-lbl" style="color:#4f46e5;font-weight:700"><img src="'+fav(_brandDomOv)+'" onerror="this.style.opacity=\'0\'" alt=""><span>You ('+brandName+')</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:'+_brandPctOv+'%;background:rgba(79,70,229,.85)"></div></div><div class="ov-bar-val" style="color:#4f46e5;font-weight:700">'+brandMentionCount+' mentions <span style="margin-left:4px">'+_brandOvCmp+'</span></div></div>';
 
   /* ── Top domain items ───────────────────────────────────────────────── */
   var topDom=activeCit.topDomains.slice(0,8),domMax=topDom[0]?topDom[0].count:1;
@@ -949,14 +1014,34 @@ function renderOverview(){
   _ovCharts.dt=new Chart(document.getElementById('ov-dt'),{type:'doughnut',data:{labels:dtLabels,datasets:[{data:dtData,backgroundColor:dtColors,borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:baseFont,boxWidth:12,padding:8}},tooltip:_donutTooltipCb}}});
 }
 /* stats */
+/* Snapshot of the headline stats for an arbitrary prompts/citations/sentiment/modelCitations bundle,
+   used to compute "current selected range" vs "previous equal-length range" deltas. */
+function _computeStatsSnapshot(promptsArr,citationsObj,sentimentObj,modelCitationsObj){
+  if(!promptsArr)return null;
+  var pd=_filterPdByIntent(promptsArr);
+  var totalRuns=0,mentioned=0;
+  pd.forEach(function(p){
+    if(activeModel==='all'){totalRuns+=p.totalRuns;mentioned+=p.mentions;}
+    else{var mr=p.models[activeModel];if(mr){totalRuns++;if(mr.mentioned)mentioned++;}}
+  });
+  var visPct=totalRuns>0?(mentioned/totalRuns*100):null;
+  var citTotal=activeModel!=='all'&&modelCitationsObj&&modelCitationsObj[activeModel]?modelCitationsObj[activeModel].total:(citationsObj?citationsObj.total:0);
+  var sMentions=!sentimentObj?[]:(activeModel==='all'?sentimentObj.mentions:sentimentObj.mentions.filter(function(m){return m.model===activeModel;}));
+  var sentPos=sMentions.filter(function(m){return m.sentiment==='positive';}).length;
+  var sentTotal=sMentions.length;
+  var sentPct=sentTotal>0?(sentPos/sentTotal*100):null;
+  var allRanks=[];
+  pd.forEach(function(p){
+    if(activeModel==='all'){Object.values(p.models).forEach(function(m){if(m&&m.mentioned&&m.rank)allRanks.push(m.rank);});}
+    else{var mr=p.models[activeModel];if(mr&&mr.mentioned&&mr.rank)allRanks.push(mr.rank);}
+  });
+  var avgPos=allRanks.length?(allRanks.reduce(function(a,r){return a+r;},0)/allRanks.length):null;
+  return{visPct:visPct,totalRuns:totalRuns,mentioned:mentioned,citTotal:citTotal,sentPct:sentPct,sentPos:sentPos,sentTotal:sentTotal,avgPos:avgPos};
+}
 function renderStats(){
   var bk=BRAND_CFG[currentBrand].key,totalRuns=0,mentioned=0;
   var pd=_filterPdByIntent(D.prompts[bk]);
-  var _wkStats=_computeWeeklyStats();
-  var visWow=_weeklyDelta(_wkStats,'visibility').wow;
-  var sentWow=_weeklyDelta(_wkStats,'sentimentPct').wow;
-  var posWow=_weeklyDelta(_wkStats,'avgPosition').wow;
-  var citWow=_weeklyDelta(_wkStats,'citations').wow;
+  var _prevSnap=D_PREV.prompts[bk]?_computeStatsSnapshot(D_PREV.prompts[bk],D_PREV.citations[bk],D_PREV.sentiment[bk],D_PREV.modelCitations[bk]):null;
   pd.forEach(function(p){
     if(activeModel==='all'){totalRuns+=p.totalRuns;mentioned+=p.mentions;}
     else{var mr=p.models[activeModel];if(mr){totalRuns++;if(mr.mentioned)mentioned++;}}
@@ -1006,13 +1091,17 @@ function renderStats(){
   var posCls=avgPos===null?'bad':parseFloat(avgPos)<=2?'good':parseFloat(avgPos)<=4?'warn':'bad';
   var infoSvg='<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6v4" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".5" fill="currentColor" stroke="none"/></svg>';
   var bestScoreTip='Highest AI visibility score (0-100) achieved'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:' across all prompts and models')+'. Score reflects prominence and rank in the AI response';
+  var visCmp=_prevSnap?_cmpBadge(parseFloat(visPct),_prevSnap.visPct):deltaSmall(null,'vs prior period');
+  var citCmp=_prevSnap?_cmpBadge(citTotal,_prevSnap.citTotal):deltaSmall(null,'vs prior period');
+  var sentCmp=_prevSnap&&sentPct!==null?_cmpBadge(parseInt(sentPct),_prevSnap.sentPct):deltaSmall(null,'vs prior period');
+  var posCmp=_prevSnap&&avgPos!==null&&_prevSnap.avgPos!==null?_cmpBadge(parseFloat(avgPos),_prevSnap.avgPos,true):deltaSmall(null,'vs prior period',true);
   document.getElementById('statRow').innerHTML=
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Percentage of total AI model runs where the brand was mentioned (total mentions / total runs across all prompts and models)">'+infoSvg+'</span>AI Visibility</div><div class="sc-val '+visCls+'">'+visPct+'%</div><div class="sc-sub">'+mentioned+' of '+totalRuns+' model runs include a mention</div><div style="margin-top:4px">'+deltaSmall(visWow)+'</div>'+_statNote('Out of every prompt + AI model combination tested, the share where the brand\'s name showed up anywhere in the answer.')+'</div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Percentage of total AI model runs where the brand was mentioned (total mentions / total runs across all prompts and models)">'+infoSvg+'</span>AI Visibility</div><div class="sc-val '+visCls+'">'+visPct+'%</div><div class="sc-sub">'+mentioned+' of '+totalRuns+' model runs include a mention</div><div style="margin-top:4px">'+visCmp+'</div>'+_statNote('Out of every prompt + AI model combination tested, the share where the brand\'s name showed up anywhere in the answer.')+'</div>'+
     '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of individual AI model query executions across all prompts">'+infoSvg+'</span>Model Runs</div><div class="sc-val">'+totalRuns+'</div><div class="sc-sub">'+promptsMentioned+' of '+pd.length+' prompts trigger a mention</div>'+_statNote('One "run" is one tracked prompt asked to one AI model on one day. More models or more prompts both raise this count.')+'</div>'+
     '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="'+bestScoreTip+'">'+infoSvg+'</span>Best Score</div><div class="sc-val '+(bestScore>0?'good':'bad')+'">'+(bestScore>0?bestScore:'None')+'</div><div class="sc-sub">'+(bestScore===100?'Rank 1 by '+(bestScoreModel||'AI'):bestScore>0?'highest ranking'+(bestScoreModel?' by '+bestScoreModel:''):'not ranked by any model')+'</div>'+_statNote('The single best result the brand achieved in any one AI answer, on a 0-100 scale combining how prominently and how highly it was ranked.')+'</div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of source URLs cited by AI models when answering prompts in this brand\'s topic area">'+infoSvg+'</span>Total Citations</div><div class="sc-val" style="color:var(--v)">'+citTotal.toLocaleString()+'</div><div class="sc-sub">'+c.uniqueDomains+' unique domains</div><div style="margin-top:4px">'+deltaSmall(citWow)+'</div>'+_statNote('Every source link an AI model referenced while answering a tracked prompt, whether or not the brand itself was mentioned in that answer.')+'</div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Share of brand mentions rated as positive sentiment out of all detected mentions">'+infoSvg+'</span>Sentiment Score</div><div class="sc-val '+(sentPct===null?'bad':sentCls)+'">'+(sentPct!==null?sentPct+'%':'N/A')+'</div><div class="sc-sub">'+(sentTotal>0?sentPos+' positive of '+sentTotal+' mentions':'no mentions detected')+'</div><div style="margin-top:4px">'+deltaSmall(sentWow)+'</div>'+_statNote('Of the answers that actually named the brand, the share where the AI\'s tone toward it was positive rather than neutral or negative.')+'</div>'+
-    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Mean rank position across all AI responses where the brand was mentioned. Lower is better (rank 1 = first recommended)">'+infoSvg+'</span>Avg Position</div><div class="sc-val '+(avgPos===null?'bad':posCls)+'">'+(avgPos!==null?'#'+avgPos:'N/A')+'</div><div class="sc-sub">'+(allRanks.length?'across '+allRanks.length+' ranked responses':'no ranked mentions')+'</div><div style="margin-top:4px">'+deltaSmall(posWow,'WoW',true)+'</div>'+_statNote('When an AI answer lists brands in order (e.g. "top 5 eyewear brands"), this is the average spot the brand landed in. Lower is better.')+'</div>';
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Total number of source URLs cited by AI models when answering prompts in this brand\'s topic area">'+infoSvg+'</span>Total Citations</div><div class="sc-val" style="color:var(--v)">'+citTotal.toLocaleString()+'</div><div class="sc-sub">'+c.uniqueDomains+' unique domains</div><div style="margin-top:4px">'+citCmp+'</div>'+_statNote('Every source link an AI model referenced while answering a tracked prompt, whether or not the brand itself was mentioned in that answer.')+'</div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Share of brand mentions rated as positive sentiment out of all detected mentions">'+infoSvg+'</span>Sentiment Score</div><div class="sc-val '+(sentPct===null?'bad':sentCls)+'">'+(sentPct!==null?sentPct+'%':'N/A')+'</div><div class="sc-sub">'+(sentTotal>0?sentPos+' positive of '+sentTotal+' mentions':'no mentions detected')+'</div><div style="margin-top:4px">'+sentCmp+'</div>'+_statNote('Of the answers that actually named the brand, the share where the AI\'s tone toward it was positive rather than neutral or negative.')+'</div>'+
+    '<div class="stat-card"><div class="sc-label"><span class="info-tip" data-tip="Mean rank position across all AI responses where the brand was mentioned. Lower is better (rank 1 = first recommended)">'+infoSvg+'</span>Avg Position</div><div class="sc-val '+(avgPos===null?'bad':posCls)+'">'+(avgPos!==null?'#'+avgPos:'N/A')+'</div><div class="sc-sub">'+(allRanks.length?'across '+allRanks.length+' ranked responses':'no ranked mentions')+'</div><div style="margin-top:4px">'+posCmp+'</div>'+_statNote('When an AI answer lists brands in order (e.g. "top 5 eyewear brands"), this is the average spot the brand landed in. Lower is better.')+'</div>';
 }
 /* sort helpers */
 function setSortCol(col){
@@ -1368,8 +1457,16 @@ function renderSentiment(){
   }
   if(sentimentFilter!=='all')mentions=mentions.filter(function(m){return m.sentiment===sentimentFilter;});
   var tiles=[{cls:'spos',num:tileCounts.positive,lbl:'Positive'},{cls:'sneu',num:tileCounts.neutral,lbl:'Neutral'},{cls:'sneg',num:tileCounts.negative,lbl:'Negative'},{cls:'sunc',num:tileCounts.uncertain,lbl:'Uncertain'}].map(function(t){return '<div class="sent-tile '+t.cls+'"><div class="st-num">'+t.num+'</div><div class="st-lbl">'+t.lbl+'</div></div>';}).join('');
-  var _sentWow=_weeklyDelta(_computeWeeklyStats(),'sentimentPct').wow;
-  var wowRow='<div style="padding:8px 0 4px;display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--ink4)">Positive sentiment share</span>'+deltaSmall(_sentWow)+'</div>';
+  var _curSentTotal=tileCounts.positive+tileCounts.neutral+tileCounts.negative+tileCounts.uncertain;
+  var _curSentPct=_curSentTotal>0?(tileCounts.positive/_curSentTotal*100):null;
+  var _prevSentPct=null;
+  if(D_PREV.sentiment[bk]){
+    var _ps=D_PREV.sentiment[bk];
+    var _pm=activeModel==='all'?_ps.mentions:_ps.mentions.filter(function(m){return m.model===activeModel;});
+    if(_sentIntentTexts)_pm=_pm.filter(function(m){return _sentIntentTexts.has(m.prompt);});
+    if(_pm.length)_prevSentPct=_pm.filter(function(m){return m.sentiment==='positive';}).length/_pm.length*100;
+  }
+  var wowRow='<div style="padding:8px 0 4px;display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--ink4)">Positive sentiment share</span>'+(D_PREV.sentiment[bk]?_cmpBadge(_curSentPct,_prevSentPct):deltaSmall(null,'vs prior period'))+'</div>';
   var el=document.getElementById('sentContent');
   if(s.total_mentions===0){el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128202;</div><h3>No mentions detected</h3><p>'+BRAND_CFG[currentBrand].name+' was not mentioned in any of the 30 tracked prompts across 5 AI models. See the Actions tab for steps to achieve first mentions.</p></div></div></div>';return;}
   if(!mentions.length){var noDataMsg=sentimentFilter!=='all'?'No '+sentimentFilter+' mentions for this filter. Try a different sentiment or switch to All.':(activeModel==='all'?'No mentions detected for current filter.':'No mentions for '+(MODEL_META[activeModel]||{label:activeModel}).label+'. Switch to "All models" or try Sonar.');el.innerHTML='<div class="sent-tiles">'+tiles+'</div><div class="cc"><div class="cc-body"><div class="no-data"><div class="no-data-icon">&#128269;</div><h3>No matching mentions</h3><p>'+noDataMsg+'</p></div></div></div>';return;}
@@ -1396,7 +1493,10 @@ function renderCompetitors(){
   var _brandPctComp=max>0?(_brandMentionsComp/max*100).toFixed(0):0;
   var _brandDomComp=BRAND_CFG[currentBrand].url||'aipeekaboo.com';
   var _brandCompName=BRAND_CFG[currentBrand].name;
-  var _brandCompRow='<div class="comp-row" style="background:rgba(79,70,229,.06);border-bottom:1.5px dashed rgba(79,70,229,.25)"><div class="comp-rank" style="color:#4f46e5;font-size:9px;font-weight:800;letter-spacing:.05em;width:20px">YOU</div><img class="comp-fav" src="'+fav(_brandDomComp)+'" onerror="this.style.display=\'none\'"><div class="comp-name" style="color:#4f46e5;font-weight:700">'+esc(_brandCompName)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+_brandPctComp+'%;background:rgba(79,70,229,.85)"></div></div><div class="comp-count" style="color:#4f46e5;font-weight:600">'+_brandMentionsComp+' mentions</div><div class="sdot sdot-pos" title="positive"></div></div>';
+  var _prevCompPd=D_PREV.prompts[bk]?_filterPdByIntent(D_PREV.prompts[bk]):null;
+  var _prevBrandMentionsComp=_prevCompPd?(activeModel==='all'?_prevCompPd.reduce(function(s,p){return s+(p.mentions||0);},0):_prevCompPd.reduce(function(s,p){return s+((p.models&&p.models[activeModel]&&p.models[activeModel].mentioned)?1:0);},0)):null;
+  var _brandCompCmp=_prevCompPd?_cmpBadge(_brandMentionsComp,_prevBrandMentionsComp):deltaSmall(null,'vs prior period');
+  var _brandCompRow='<div class="comp-row" style="background:rgba(79,70,229,.06);border-bottom:1.5px dashed rgba(79,70,229,.25)"><div class="comp-rank" style="color:#4f46e5;font-size:9px;font-weight:800;letter-spacing:.05em;width:20px">YOU</div><img class="comp-fav" src="'+fav(_brandDomComp)+'" onerror="this.style.display=\'none\'"><div class="comp-name" style="color:#4f46e5;font-weight:700">'+esc(_brandCompName)+'</div><div class="comp-bar-wrap"><div class="comp-bar" style="width:'+_brandPctComp+'%;background:rgba(79,70,229,.85)"></div></div><div class="comp-count" style="color:#4f46e5;font-weight:600">'+_brandMentionsComp+' mentions <span style="margin-left:4px">'+_brandCompCmp+'</span></div><div class="sdot sdot-pos" title="positive"></div></div>';
   function _parseChangeStr(s){if(!s)return null;var m=String(s).match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):null;}
   document.getElementById('compList').innerHTML=_brandCompRow+comps.slice(0,15).map(function(c,i){
     var cd=COMP_DOMAINS[c.name]||(c.name.toLowerCase().replace(/\s/g,'')+'.com');
@@ -1557,6 +1657,13 @@ function renderCitations(){
     c.uniqueDomains=c.topDomains?c.topDomains.length:D.citations[bk].uniqueDomains;
     c.topListicles=D.citations[bk].topListicles;
   } else c=D.citations[bk];
+  var _cPrevTotal=null;
+  if(D_PREV.citations[bk]){
+    if(activeModel!=='all'&&D_PREV.modelCitations&&D_PREV.modelCitations[bk]&&D_PREV.modelCitations[bk][activeModel]){
+      _cPrevTotal=D_PREV.modelCitations[bk][activeModel].total;
+    } else {_cPrevTotal=D_PREV.citations[bk].total;}
+  }
+  var _citTotalCmp=D_PREV.citations[bk]?_cmpBadge(c.total,_cPrevTotal):deltaSmall(null,'vs prior period');
   /* competitor/brand filter setup */
   var compCits=_getCompCits(currentBrand);
   var _brandCitsArr=_buildBrandCits(currentBrand);
@@ -1665,7 +1772,7 @@ function renderCitations(){
       '<div class="cc"><div class="cc-head"><div class="cc-title">Page Type</div><div class="cc-sub">'+tdt.toLocaleString()+' total citations</div></div><div class="cc-body">'+dtBars+'</div></div>'+
       '<div class="cc"><div class="cc-head"><div class="cc-title">Content Type</div><div class="cc-sub">how AI sources are classified</div></div><div class="cc-body">'+ctBars+'</div></div>'+
     '</div>'+
-    '<div class="cc"><div class="cc-head"><div class="cc-title">Top 20 Cited Domains</div><div class="cc-sub">'+(c.uniqueDomains||'')+' unique domains'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:'')+'</div></div>'+
+    '<div class="cc"><div class="cc-head"><div><div class="cc-title">Top 20 Cited Domains</div><div class="cc-sub">'+c.total.toLocaleString()+' total citations &middot; '+(c.uniqueDomains||'')+' unique domains'+(activeModel!=='all'?' for '+(MODEL_META[activeModel]||{label:activeModel}).label:'')+'</div></div><div>'+_citTotalCmp+'</div></div>'+
       '<div class="cc-body np"><table class="dom-table"><thead><tr><th>#</th><th>Domain</th><th>Domain Type</th><th style="text-align:right">Citations</th></tr></thead><tbody>'+domRows+'</tbody></table></div>'+
     '</div>'+
     (ltRows?'<div class="cc"><div class="cc-head"><div class="cc-title">Top Listicle Articles</div><div class="cc-sub">highest-priority inclusion targets</div></div><div class="cc-body np"><table class="dom-table"><thead><tr><th>Domain</th><th>Article</th><th style="text-align:right">Cited</th></tr></thead><tbody>'+ltRows+'</tbody></table></div></div>':'');
